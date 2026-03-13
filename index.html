@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Viewport: viewport-fit=cover notch/Dynamic Island desteği için -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Basit not alma uygulaması" />
+
+  <!-- PWA genel -->
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- iOS Safari PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Noty" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Telefon numarası otomatik algılamasını kapat -->
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <link rel="stylesheet" href="noty.css" />
+  <title>Noty</title>
+</head>
+<body>
+
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Menü</span>
+      <button class="sidebar-close" id="sidebarClose"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <ul class="nav-list">
+      <li>
+        <button class="nav-item active" data-view="list">
+          <i class="fa-solid fa-note-sticky nav-icon"></i> Notlarım
+        </button>
+      </li>
+      <li>
+        <button class="nav-item" data-view="add">
+          <i class="fa-solid fa-pen nav-icon"></i> Yeni Not Ekle
+        </button>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="themeToggle">
+        <i class="fa-solid fa-moon" id="themeIcon"></i>
+        <span id="themeLabel">Light Mode</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Ana içerik -->
+  <div class="app-layout">
+    <header>
+      <button class="menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
+      <h1>Noty</h1>
+      <span class="note-count" id="noteCount"></span>
+    </header>
+
+    <main>
+      <!-- Notlarım -->
+      <section id="view-list" class="view">
+        <div class="notes-list" id="notesList"></div>
+      </section>
+
+      <!-- Not Detayı / Editor -->
+      <section id="view-detail" class="view hidden">
+        <div id="detailContent"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" title="Yeni Not Ekle">
+    <i class="fa-solid fa-plus"></i>
+  </button>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox">
+    <button class="lightbox-close" id="lightboxClose"><i class="fa-solid fa-xmark"></i></button>
+    <img id="lightboxImg" class="lightbox-img" alt="" />
+  </div>
+
+  <script type="module" src="noty.js"></script>
+</body>
+</html>
