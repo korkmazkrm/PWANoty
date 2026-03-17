@@ -1,14 +1,18 @@
 const DB_NAME = 'pwa-noty';
-const DB_VERSION = 1;
-const STORE = 'notes';
+const DB_VERSION = 2;
+const STORE_NOTES = 'notes';
+const STORE_FOLDERS = 'folders';
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORE_NOTES)) {
+        db.createObjectStore(STORE_NOTES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_FOLDERS)) {
+        db.createObjectStore(STORE_FOLDERS, { keyPath: 'id' });
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -19,7 +23,7 @@ function openDB() {
 export async function getAllNotes() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+    const req = db.transaction(STORE_NOTES, 'readonly').objectStore(STORE_NOTES).getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror  = () => reject(req.error);
   });
@@ -28,7 +32,7 @@ export async function getAllNotes() {
 export async function saveNote(note) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(STORE, 'readwrite').objectStore(STORE).put(note);
+    const req = db.transaction(STORE_NOTES, 'readwrite').objectStore(STORE_NOTES).put(note);
     req.onsuccess = () => resolve();
     req.onerror  = () => reject(req.error);
   });
@@ -37,7 +41,34 @@ export async function saveNote(note) {
 export async function deleteNote(id) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id);
+    const req = db.transaction(STORE_NOTES, 'readwrite').objectStore(STORE_NOTES).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror  = () => reject(req.error);
+  });
+}
+
+export async function getAllFolders() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_FOLDERS, 'readonly').objectStore(STORE_FOLDERS).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror  = () => reject(req.error);
+  });
+}
+
+export async function saveFolder(folder) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_FOLDERS, 'readwrite').objectStore(STORE_FOLDERS).put(folder);
+    req.onsuccess = () => resolve();
+    req.onerror  = () => reject(req.error);
+  });
+}
+
+export async function deleteFolder(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_FOLDERS, 'readwrite').objectStore(STORE_FOLDERS).delete(id);
     req.onsuccess = () => resolve();
     req.onerror  = () => reject(req.error);
   });

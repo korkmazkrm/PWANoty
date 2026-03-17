@@ -19,6 +19,10 @@
 
   <!-- Telefon numarası otomatik algılamasını kapat -->
   <meta name="format-detection" content="telephone=no" />
+  <!-- UI Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
   <link rel="stylesheet" href="noty.css" />
   <title>Noty</title>
@@ -36,13 +40,23 @@
     </div>
     <ul class="nav-list">
       <li>
-        <button class="nav-item active" data-view="list">
+        <button class="nav-item active" data-view="notes">
           <i class="fa-solid fa-note-sticky nav-icon"></i> Notlarım
         </button>
       </li>
       <li>
         <button class="nav-item" data-view="add">
           <i class="fa-solid fa-pen nav-icon"></i> Yeni Not Ekle
+        </button>
+      </li>
+      <li>
+        <button class="nav-item" data-view="folders">
+          <i class="fa-solid fa-folder nav-icon"></i> Klasörler
+        </button>
+      </li>
+      <li>
+        <button class="nav-item" data-view="trash">
+          <i class="fa-solid fa-trash-can nav-icon"></i> Çöp Kutusu
         </button>
       </li>
     </ul>
@@ -58,14 +72,30 @@
   <div class="app-layout">
     <header>
       <button class="menu-btn" id="menuBtn"><i class="fa-solid fa-bars"></i></button>
-      <h1>Noty</h1>
+      <h1 id="appTitle">Noty</h1>
+      <div class="header-search hidden" id="headerSearch">
+        <i class="fa-solid fa-magnifying-glass header-search-icon"></i>
+        <input id="notesSearchInput" class="header-search-input" type="search" placeholder="Notlarda ara..." autocomplete="off" />
+        <button id="notesSearchClear" class="header-search-clear hidden" type="button" title="Temizle">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
       <span class="note-count" id="noteCount"></span>
+      <button class="menu-btn header-search-btn" id="headerSearchBtn" title="Ara">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
     </header>
 
     <main>
       <!-- Notlarım -->
       <section id="view-list" class="view">
+        <div class="notes-filter-bar" id="notesFilterBar"></div>
         <div class="notes-list" id="notesList"></div>
+      </section>
+
+      <!-- Klasörler -->
+      <section id="view-folders" class="view hidden">
+        <div class="folders-list" id="foldersList"></div>
       </section>
 
       <!-- Not Detayı / Editor -->

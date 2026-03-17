@@ -1,17 +1,17 @@
-const CACHE_NAME = 'pwa-noty-v17';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/noty.css',
-  '/noty.js',
-  '/db.js',
-  '/opfs.js'
-];
+const CACHE_NAME = 'pwa-noty-v18';
+// Uygulama kök veya alt dizinde olsun, SW scope'una göre asset'leri önbelleğe al
+const ASSET_PATHS = ['', 'index.html', 'manifest.json', 'noty.css', 'noty.js', 'db.js', 'opfs.js'];
+
+function getBaseUrl() {
+  const swUrl = self.location.href;
+  return swUrl.slice(0, swUrl.lastIndexOf('/') + 1);
+}
 
 self.addEventListener('install', (event) => {
+  const base = getBaseUrl();
+  const urls = ASSET_PATHS.map((p) => base + p);
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(urls))
   );
   globalThis.skipWaiting();
 });

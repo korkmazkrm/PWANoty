@@ -2,7 +2,7 @@
   "name": "PWA Noty",
   "short_name": "Noty",
   "description": "Basit not alma uygulaması",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1e1e2e",
   "theme_color": "#7c3aed",

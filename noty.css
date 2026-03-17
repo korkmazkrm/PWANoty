@@ -41,7 +41,7 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
@@ -209,6 +209,14 @@ header h1 {
   color: var(--accent);
 }
 
+.header-search {
+  margin-left: 0.25rem;
+}
+
+.header-search-btn {
+  margin-left: auto;
+}
+
 .note-count {
   margin-left: auto;
   font-size: 0.8rem;
@@ -255,6 +263,9 @@ main {
 .view { display: flex; flex-direction: column; gap: 1rem; }
 .view.hidden { display: none; }
 
+/* Utility */
+.hidden { display: none !important; }
+
 /* ===== Pending fotoğraflar ===== */
 
 .pending-photo {
@@ -294,6 +305,105 @@ main {
 .notes-list {
   display: flex;
   flex-direction: column;
+  gap: 0.25rem;
+}
+
+.notes-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+/* ===== Header search (toggle) ===== */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.header-search-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.header-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.header-search-input::placeholder {
+  color: var(--muted);
+}
+
+.header-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: 8px;
+}
+
+.header-search-clear:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.header-search-btn {
+  padding: 0.5rem 0.65rem;
+}
+
+.notes-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--subtext);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.notes-filter-chip span {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notes-filter-chip-sort-icon {
+  flex-shrink: 0;
+  max-width: none;
+  opacity: 0.85;
+}
+
+.folders-list {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
@@ -308,7 +418,7 @@ main {
   background: var(--surface);
   border: 1px solid var(--border2);
   border-radius: 10px;
-  padding: 1rem;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -318,6 +428,85 @@ main {
 }
 
 .note-card:hover { border-color: var(--accent-bg); }
+
+.folder-card {
+  cursor: pointer;
+}
+
+.folder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.folder-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: transparent;
+}
+
+.note-folder-row {
+  margin: 0 0 0.35rem;
+  padding: 0.25rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  cursor: default;
+  font-size: 0.85rem;
+}
+
+.note-folder-icon {
+  margin-right: 0.4rem;
+  color: var(--muted);
+}
+
+.note-folder-chip-small {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.note-folder-chip-small .note-folder-chip-icon {
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+.editor-folder-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.editor-folder-btn:hover {
+  background: var(--surface);
+}
+
+.folder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.folder-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: transparent;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-6px); }
@@ -369,6 +558,123 @@ button.delete-btn {
 
 button.delete-btn:hover { background: var(--surface2); }
 
+/* ===== Mobil alt sheet (confirm) ===== */
+
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+  z-index: 80;
+}
+
+.sheet-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-low);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+  transform: translateY(100%);
+  transition: transform 0.2s ease-out;
+}
+
+.sheet-bottom.open {
+  transform: translateY(0);
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border2);
+  margin: 0.5rem auto;
+}
+
+.sheet-body {
+  padding: 0.75rem 1.5rem 1.25rem;
+}
+
+.sheet-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.sheet-message {
+  font-size: 0.9rem;
+  color: var(--subtext);
+  margin-bottom: 0.85rem;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.sheet-btn {
+  flex: 1;
+  border-radius: 999px;
+  border: none;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sheet-btn-cancel {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.sheet-btn-danger {
+  background: var(--delete);
+  color: var(--bg);
+}
+
+.sheet-note-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sheet-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: none;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sheet-menu-item i {
+  flex-shrink: 0;
+  width: 1.1em;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.sheet-menu-item:hover {
+  background: var(--surface2);
+}
+
 /* ===== Tam Sayfa Editor (sağdan slide-in) ===== */
 
 #view-detail,
@@ -404,13 +710,17 @@ button.delete-btn:hover { background: var(--surface2); }
 .editor-top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   background: var(--bg);
   z-index: 2;
+}
+
+.editor-top-spacer {
+  flex: 1;
 }
 
 .editor-cancel-btn {
@@ -461,23 +771,147 @@ button.delete-btn:hover { background: var(--surface2); }
 
 .editor-title-input::placeholder { color: var(--surface2); }
 
-.edit-textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
+/* Klasör açıklama alanı */
+.folder-desc-input {
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border2);
   outline: none;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 0.75rem 1.25rem;
+  margin: 0.5rem 1.5rem 1.5rem;
+  min-height: 80px;
+  resize: vertical;
+}
+
+.folder-desc-input::placeholder {
+  color: var(--muted);
+}
+
+.folder-color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 1.5rem 0;
+}
+
+.folder-color-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.folder-color-input {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid var(--surface2);
+  background: transparent;
+  cursor: pointer;
+}
+
+.folder-color-input::-webkit-color-swatch {
+  border-radius: 999px;
+  border: none;
+}
+
+.folder-color-input::-moz-color-swatch {
+  border-radius: 999px;
+  border: none;
+}
+
+/* Format toolbar: alt barın hemen üstünde, ikonla açılır */
+.editor-format-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-low);
+}
+
+.editor-format-bar-above-bottom {
+  display: none;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.editor-format-bar-above-bottom.open {
+  display: flex;
+}
+
+.editor-format-bar .format-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border2);
+  margin: 0 0.15rem;
+}
+
+.editor-format-bar .format-btn {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.editor-format-bar .format-btn:hover {
+  background: var(--surface2);
+  border-color: var(--accent-bg);
+  color: var(--accent);
+}
+
+.editor-format-bar .format-btn i {
+  font-size: 0.9rem;
+}
+
+.editor-format-bar span.format-sep {
+  flex-shrink: 0;
+}
+
+/* Zengin metin alanı (contenteditable) */
+.editor-body-rich {
+  flex: 1;
+  min-height: 160px;
+  padding: 0.75rem 1.5rem 1.25rem;
   color: var(--text);
   font-size: 1.05rem;
   font-family: inherit;
   line-height: 1.8;
-  padding: 0.5rem 1.5rem 1.25rem;
-  resize: none;
-  width: 100%;
-  min-height: 160px;
-  overflow: hidden;
+  outline: none;
+  overflow-y: auto;
 }
 
-.edit-textarea::placeholder { color: var(--surface2); }
+.editor-body-rich:empty::before {
+  content: attr(data-placeholder);
+  color: var(--surface2);
+}
+
+.editor-body-rich h1 { font-size: 1.75rem; font-weight: 700; margin: 0.75rem 0 0.35rem; line-height: 1.3; }
+.editor-body-rich h2 { font-size: 1.5rem;  font-weight: 700; margin: 0.65rem 0 0.3rem; line-height: 1.35; }
+.editor-body-rich h3 { font-size: 1.3rem;  font-weight: 600; margin: 0.55rem 0 0.25rem; line-height: 1.4; }
+.editor-body-rich h4 { font-size: 1.15rem; font-weight: 600; margin: 0.5rem 0 0.2rem; line-height: 1.45; }
+.editor-body-rich h5 { font-size: 1.05rem; font-weight: 600; margin: 0.45rem 0 0.2rem; line-height: 1.5; }
+.editor-body-rich h6 { font-size: 0.95rem;  font-weight: 600; margin: 0.4rem 0 0.15rem; line-height: 1.5; }
+.editor-body-rich p { margin: 0.35rem 0; }
+.editor-body-rich p:first-child { margin-top: 0; }
+.editor-body-rich u { text-decoration: underline; }
+.editor-body-rich s { text-decoration: line-through; }
 
 .editor-photo-strip {
   display: flex;
@@ -495,6 +929,10 @@ button.delete-btn:hover { background: var(--surface2); }
   position: sticky;
   bottom: 0;
   background: var(--bg);
+}
+
+.editor-format-toggle {
+  margin-left: auto;
 }
 
 .editor-icon-btn {
