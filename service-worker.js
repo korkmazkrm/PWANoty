@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pwa-noty-v18';
+const CACHE_NAME = 'pwa-noty-v19';
 // Uygulama kök veya alt dizinde olsun, SW scope'una göre asset'leri önbelleğe al
 const ASSET_PATHS = ['', 'index.html', 'manifest.json', 'noty.css', 'noty.js', 'db.js', 'opfs.js'];
 

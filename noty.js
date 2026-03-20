@@ -1,4 +1,4 @@
-import { getAllNotes, saveNote, deleteNote, getAllFolders, saveFolder, deleteFolder } from './db.js';
+import { getAllNotes, saveNote, deleteNote, getAllFolders, saveFolder, deleteFolder, getAllTags, saveTag, deleteTag } from './db.js';
 import { savePhoto, loadPhoto, deletePhoto } from './opfs.js';
 
 // --- DOM ---
@@ -8,6 +8,7 @@ const notesFilterBar = document.getElementById('notesFilterBar');
 const notesSearchInput = document.getElementById('notesSearchInput');
 const notesSearchClear = document.getElementById('notesSearchClear');
 const foldersList    = document.getElementById('foldersList');
+const tagsList       = document.getElementById('tagsList');
 const noteCount      = document.getElementById('noteCount');
 const menuBtn        = document.getElementById('menuBtn');
 const sidebar        = document.getElementById('sidebar');
@@ -16,6 +17,7 @@ const sidebarClose   = document.getElementById('sidebarClose');
 const navItems       = document.querySelectorAll('.nav-item');
 const viewList       = document.getElementById('view-list');
 const viewFolders    = document.getElementById('view-folders');
+const viewTags       = document.getElementById('view-tags');
 const viewDetail     = document.getElementById('view-detail');
 const detailContent  = document.getElementById('detailContent');
 const appTitle       = document.getElementById('appTitle');
@@ -172,6 +174,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLight
 function showListViews() {
   viewList.classList.toggle('hidden', currentMode !== 'notes');
   viewFolders.classList.toggle('hidden', currentMode !== 'folders');
+  viewTags.classList.toggle('hidden', currentMode !== 'tags');
   viewDetail.classList.add('hidden');
   fab.classList.remove('hidden');
 }
@@ -180,6 +183,8 @@ function navigateTo(viewName) {
   if (viewName === 'add') { openEditor(null); return; }
   if (viewName === 'folders') {
     currentMode = 'folders';
+  } else if (viewName === 'tags') {
+    currentMode = 'tags';
   } else {
     currentMode = 'notes';
   }
@@ -200,6 +205,8 @@ function navigateTo(viewName) {
 fab.addEventListener('click', () => {
   if (currentMode === 'folders') {
     openFolderEditor(null);
+  } else if (currentMode === 'tags') {
+    openTagEditor(null);
   } else {
     openEditor(null);
   }
@@ -335,7 +342,8 @@ function openEditor(note) {
       text: updatedText,
       photos: [...keptPhotos, ...newPhotoNames],
       audios: [...keptAudios, ...newAudioNames],
-      folderId
+      folderId,
+      tagIds: selectedTags.map((t) => t.id)
     };
 
     const record = isNew
@@ -350,7 +358,7 @@ function openEditor(note) {
     navigateTo('list');
   });
 
-  topBar.append(cancelBtn, dateLabel, spacer, saveBtn);
+  topBar.append(cancelBtn, spacer, saveBtn);
 
   // --- Başlık alanı ---
   const titleInput = document.createElement('input');
@@ -372,6 +380,7 @@ function openEditor(note) {
   folderRow.append(folderIcon, folderText);
 
   let selectedFolder = null;
+  let selectedTags = [];
 
   function updateFolderRow() {
     if (!selectedFolder) {
@@ -397,6 +406,42 @@ function openEditor(note) {
       updateFolderRow();
     }
   }
+
+  // --- Etiket satırı ---
+
+  const tagsRow = document.createElement('div');
+  tagsRow.className = 'note-tags-row';
+
+  const updateTagsRow = () => {
+    tagsRow.innerHTML = '';
+    if (!selectedTags.length) {
+      tagsRow.style.display = 'none';
+      return;
+    }
+    tagsRow.style.display = 'flex';
+    for (const t of selectedTags) {
+      const chip = document.createElement('span');
+      chip.className = 'note-tag-chip';
+      chip.textContent = t.name;
+      if (t.color) chip.style.backgroundColor = t.color;
+      if (t.fontColor) chip.style.color = t.fontColor;
+      tagsRow.appendChild(chip);
+    }
+  };
+
+  const initTags = async () => {
+    const ids = isNew ? [] : (note.tagIds ?? []);
+    if (!ids.length) { selectedTags = []; updateTagsRow(); return; }
+    try {
+      const tags = await getAllTags();
+      const map = new Map(tags.map((t) => [t.id, t]));
+      selectedTags = ids.map((id) => map.get(id)).filter(Boolean);
+      updateTagsRow();
+    } catch {
+      selectedTags = [];
+      updateTagsRow();
+    }
+  };
 
   folderBtn.addEventListener('click', async () => {
     const folders = await getAllFolders();
@@ -451,6 +496,83 @@ function openEditor(note) {
   });
 
   initFolderRow();
+  initTags();
+
+  const tagBtn = document.createElement('button');
+  tagBtn.className = 'editor-icon-btn editor-tag-btn';
+  tagBtn.innerHTML = '<i class="fa-solid fa-tags"></i>';
+  tagBtn.title = 'Etiket seç';
+
+  tagBtn.addEventListener('click', async () => {
+    const tags = await getAllTags();
+    const selected = new Set(selectedTags.map((t) => t.id));
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet sheet-bottom';
+
+    const renderItems = () => {
+      const items = tags.map((t) => {
+        const on = selected.has(t.id);
+        const bg = t.color ? `background:${t.color}` : '';
+        const fg = t.fontColor ? `color:${t.fontColor}` : '';
+        const style = [bg, fg].filter(Boolean).join(';');
+        return `
+          <button class="sheet-menu-item tag-pick-item" data-id="${t.id}">
+            <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
+            <span style="${style}">${t.name}</span>
+          </button>
+        `;
+      }).join('');
+      sheet.innerHTML = `
+        <div class="sheet-handle"></div>
+        <div class="sheet-body">
+          <p class="sheet-title">Etiket seç</p>
+          <div class="sheet-note-actions">
+            ${items || '<p class="empty-state" style="padding:0.75rem 0.25rem">Henüz etiket yok.</p>'}
+            <button class="sheet-btn sheet-btn-cancel tag-pick-done">Bitti</button>
+          </div>
+        </div>
+      `;
+    };
+
+    renderItems();
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+
+    const close = () => {
+      overlay.classList.remove('open');
+      sheet.classList.remove('open');
+      setTimeout(() => overlay.remove(), 180);
+    };
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+
+    sheet.addEventListener('click', (e) => {
+      const done = e.target.closest('.tag-pick-done');
+      if (done) {
+        const map = new Map(tags.map((t) => [t.id, t]));
+        selectedTags = [...selected].map((id) => map.get(id)).filter(Boolean);
+        updateTagsRow();
+        close();
+        return;
+      }
+      const btn = e.target.closest('.tag-pick-item');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      renderItems();
+    });
+
+    requestAnimationFrame(() => {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+    });
+  });
 
   // --- Zengin metin alanı (contenteditable) ---
   const bodyEditor = document.createElement('div');
@@ -678,8 +800,8 @@ function openEditor(note) {
     }
   });
 
-  bottomBar.append(folderBtn, photoAddBtn, fileInput, micBtn, recIndicator, formatToggleBtn);
-  detailContent.append(topBar, titleInput, folderRow, bodyEditor, strip, audioStrip, formatBarAboveBottom, bottomBar);
+  bottomBar.append(folderBtn, tagBtn, photoAddBtn, fileInput, micBtn, recIndicator, formatToggleBtn);
+  detailContent.append(topBar, titleInput, folderRow, tagsRow, bodyEditor, strip, audioStrip, formatBarAboveBottom, bottomBar);
   renderEditStrip();
   renderAudioStrip();
 
@@ -715,13 +837,15 @@ function openFolderEditor(folder) {
 
   const titleSpan = document.createElement('span');
   titleSpan.className = 'editor-date';
-  titleSpan.textContent = isNew ? 'Yeni Klasör' : 'Klasörü Düzenle';
+  titleSpan.textContent = isNew ? 'Yeni Klasör' : '';
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'editor-save-btn';
   saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>';
 
-  topBar.append(cancelBtn, titleSpan, saveBtn);
+  const spacer = document.createElement('div');
+  spacer.className = 'editor-top-spacer';
+  topBar.append(cancelBtn, titleSpan, spacer, saveBtn);
 
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
@@ -776,6 +900,129 @@ function openFolderEditor(folder) {
 
   viewList.classList.add('hidden');
   viewFolders.classList.add('hidden');
+  viewDetail.classList.remove('hidden');
+  fab.classList.add('hidden');
+  navItems.forEach((btn) => btn.classList.remove('active'));
+
+  nameInput.focus();
+}
+
+function openTagEditor(tag) {
+  const isNew = tag === null;
+
+  detailContent.innerHTML = '';
+
+  const topBar = document.createElement('div');
+  topBar.className = 'editor-top-bar';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'editor-cancel-btn';
+  cancelBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i>';
+  cancelBtn.addEventListener('click', () => {
+    showListViews();
+  });
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'editor-date';
+  titleSpan.textContent = isNew ? 'Yeni Etiket' : 'Etiketi Düzenle';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'editor-save-btn';
+  saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i>';
+
+  const spacer = document.createElement('div');
+  spacer.className = 'editor-top-spacer';
+  topBar.append(cancelBtn, titleSpan, spacer, saveBtn);
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'editor-title-input';
+  nameInput.placeholder = 'Etiket adı';
+  nameInput.value = isNew ? '' : (tag.name ?? '');
+
+  const colorRow = document.createElement('div');
+  colorRow.className = 'folder-color-row';
+  const colorLabel = document.createElement('span');
+  colorLabel.className = 'folder-color-label';
+  colorLabel.textContent = 'Arka plan';
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.className = 'folder-color-input';
+  colorInput.value = !isNew && tag.color ? tag.color : '#ffffff';
+  const fontColorLabel = document.createElement('span');
+  fontColorLabel.className = 'folder-color-label';
+  fontColorLabel.textContent = 'Yazı rengi';
+  const fontColorInput = document.createElement('input');
+  fontColorInput.type = 'color';
+  fontColorInput.className = 'folder-color-input';
+  fontColorInput.value = !isNew && tag.fontColor ? tag.fontColor : '#000000';
+  colorRow.append(colorLabel, colorInput, fontColorLabel, fontColorInput);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'sheet-btn sheet-btn-danger tag-delete-btn';
+  deleteBtn.textContent = 'Etiketi sil';
+  deleteBtn.style.margin = '1rem 1.25rem 0';
+  deleteBtn.style.width = 'calc(100% - 2.5rem)';
+
+  deleteBtn.addEventListener('click', async () => {
+    if (isNew) return;
+    let usedCount = 0;
+    try {
+      const notes = await getAllNotes();
+      usedCount = notes.filter((n) => (n.tagIds ?? []).includes(tag.id) && !n.deletedAt).length;
+    } catch {
+      usedCount = 0;
+    }
+    const extra = usedCount
+      ? ` Bu etiket ${usedCount} notta kullanılıyor; silersen notların üzerinden de kaldırılacak.`
+      : '';
+    const ok = await showConfirmSheet({
+      title: 'Etiketi sil',
+      message: `Bu etiket silinecek.${extra}`,
+      confirmLabel: 'Evet, sil',
+      cancelLabel: 'Vazgeç'
+    });
+    if (!ok) return;
+    // Notlardan ilişkiyi de temizle
+    try {
+      const notes = await getAllNotes();
+      const affected = notes.filter((n) => (n.tagIds ?? []).includes(tag.id));
+      for (const n of affected) {
+        n.tagIds = (n.tagIds ?? []).filter((id) => id !== tag.id);
+        await saveNote(n);
+      }
+    } catch { /* sessiz */ }
+    await deleteTag(tag.id);
+    await renderAll();
+    currentMode = 'tags';
+    showListViews();
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const color = colorInput.value;
+    const fontColor = fontColorInput.value;
+    if (!name) return;
+
+    const id = isNew ? Date.now() : tag.id;
+    const now = new Date().toISOString();
+    const record = isNew
+      ? { id, name, color, fontColor, createdAt: now, updatedAt: now }
+      : { ...tag, name, color, fontColor, updatedAt: now };
+
+    await saveTag(record);
+    await renderAll();
+    currentMode = 'tags';
+    showListViews();
+  });
+
+  detailContent.append(topBar, nameInput, colorRow);
+  if (!isNew) detailContent.append(deleteBtn);
+
+  viewList.classList.add('hidden');
+  viewFolders.classList.add('hidden');
+  viewTags.classList.add('hidden');
   viewDetail.classList.remove('hidden');
   fab.classList.add('hidden');
   navItems.forEach((btn) => btn.classList.remove('active'));
@@ -859,6 +1106,7 @@ async function showNoteActionsSheet(noteId) {
         <button class="sheet-menu-item sheet-menu-copy"><i class="fa-solid fa-copy"></i><span>Kopyala</span></button>
         <button class="sheet-menu-item sheet-menu-archive"><i class="fa-solid fa-box-archive"></i><span class="sheet-menu-item-label">Arşive gönder</span></button>
         <button class="sheet-menu-item sheet-menu-folder"><i class="fa-solid fa-folder"></i><span>Klasör ata/değiştir</span></button>
+        <button class="sheet-menu-item sheet-menu-tags"><i class="fa-solid fa-tags"></i><span>Etiket ata/değiştir</span></button>
         <button class="sheet-menu-item sheet-menu-restore hidden"><i class="fa-solid fa-rotate-left"></i><span>Geri yükle</span></button>
         <button class="sheet-menu-item sheet-menu-delete-perm hidden"><i class="fa-solid fa-trash-can"></i><span>Kalıcı sil</span></button>
         <button class="sheet-menu-item sheet-menu-delete"><i class="fa-solid fa-trash"></i><span>Sil</span></button>
@@ -883,6 +1131,7 @@ async function showNoteActionsSheet(noteId) {
   const btnCopy = sheet.querySelector('.sheet-menu-copy');
   const btnArchive = sheet.querySelector('.sheet-menu-archive');
   const btnFolder = sheet.querySelector('.sheet-menu-folder');
+  const btnTags = sheet.querySelector('.sheet-menu-tags');
   const btnRestore = sheet.querySelector('.sheet-menu-restore');
   const btnDeletePerm = sheet.querySelector('.sheet-menu-delete-perm');
   const btnDelete = sheet.querySelector('.sheet-menu-delete');
@@ -900,9 +1149,83 @@ async function showNoteActionsSheet(noteId) {
       btnCopy?.classList.add('hidden');
       btnArchive?.classList.add('hidden');
       btnFolder?.classList.add('hidden');
+      btnTags?.classList.add('hidden');
       btnDelete?.classList.add('hidden');
     }
   })();
+
+  btnTags.addEventListener('click', async () => {
+    const notes = await getAllNotes();
+    const note  = notes.find((n) => n.id === noteId);
+    if (!note) { close(); return; }
+
+    const tags = await getAllTags();
+    const selected = new Set(note.tagIds ?? []);
+
+    const overlayInner = document.createElement('div');
+    overlayInner.className = 'sheet-overlay';
+    const sheetInner = document.createElement('div');
+    sheetInner.className = 'sheet sheet-bottom';
+
+    const renderItems = () => {
+      const items = tags.map((t) => {
+        const on = selected.has(t.id);
+        const bg = t.color ? `background:${t.color}` : '';
+        const fg = t.fontColor ? `color:${t.fontColor}` : '';
+        const style = [bg, fg].filter(Boolean).join(';');
+        return `
+          <button class="sheet-menu-item tag-assign-item" data-id="${t.id}">
+            <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
+            <span style="${style}">${t.name}</span>
+          </button>
+        `;
+      }).join('');
+      sheetInner.innerHTML = `
+        <div class="sheet-handle"></div>
+        <div class="sheet-body">
+          <p class="sheet-title">Etiket ata</p>
+          <div class="sheet-note-actions">
+            ${items || '<p class="empty-state" style="padding:0.75rem 0.25rem">Henüz etiket yok.</p>'}
+            <button class="sheet-btn sheet-btn-cancel tag-assign-done">Bitti</button>
+          </div>
+        </div>
+      `;
+    };
+
+    renderItems();
+    overlayInner.appendChild(sheetInner);
+    document.body.appendChild(overlayInner);
+
+    const closeInner = () => {
+      overlayInner.classList.remove('open');
+      sheetInner.classList.remove('open');
+      setTimeout(() => overlayInner.remove(), 180);
+    };
+    overlayInner.addEventListener('click', (e) => {
+      if (e.target === overlayInner) closeInner();
+    });
+    sheetInner.addEventListener('click', async (e) => {
+      const done = e.target.closest('.tag-assign-done');
+      if (done) {
+        note.tagIds = [...selected];
+        await saveNote(note);
+        await renderAll();
+        closeInner();
+        close();
+        return;
+      }
+      const btn = e.target.closest('.tag-assign-item');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      renderItems();
+    });
+    requestAnimationFrame(() => {
+      overlayInner.classList.add('open');
+      sheetInner.classList.add('open');
+    });
+  });
 
   btnRestore.addEventListener('click', async () => {
     const notes = await getAllNotes();
@@ -982,6 +1305,7 @@ async function showNoteActionsSheet(noteId) {
       id: newId,
       text: note.text,
       folderId: note.folderId ?? null,
+      tagIds: [...(note.tagIds ?? [])],
       photos: newPhotoNames,
       audios: newAudioNames,
       archived: false,
@@ -1131,10 +1455,11 @@ async function loadNoteAudios(audioNames, container) {
 // --- Render ---
 
 async function renderNotes() {
-  const [notes, folders] = await Promise.all([getAllNotes(), getAllFolders()]);
+  const [notes, folders, tags] = await Promise.all([getAllNotes(), getAllFolders(), getAllTags()]);
   notes.sort((a, b) => b.id - a.id);
 
   const foldersById = new Map(folders.map((f) => [f.id, f]));
+  const tagsById = new Map(tags.map((t) => [t.id, t]));
 
   const byTrash = currentTrashFilter === 'trash'
     ? notes.filter((n) => Boolean(n.deletedAt))
@@ -1235,6 +1560,28 @@ async function renderNotes() {
     }
     footer.append(dateSpan, folderSpan);
 
+    const tagsSpan = document.createElement('span');
+    tagsSpan.className = 'note-tags-inline';
+    const ids = note.tagIds ?? [];
+    if (ids.length) {
+      const show = ids.slice(0, 2).map((id) => tagsById.get(id)).filter(Boolean);
+      for (const t of show) {
+        const chip = document.createElement('span');
+        chip.className = 'note-tag-chip-small';
+        chip.textContent = t.name;
+        if (t.color) chip.style.backgroundColor = t.color;
+        if (t.fontColor) chip.style.color = t.fontColor;
+        tagsSpan.appendChild(chip);
+      }
+      if (ids.length > show.length) {
+        const more = document.createElement('span');
+        more.className = 'note-tag-chip-small note-tag-chip-more';
+        more.textContent = `+${ids.length - show.length}`;
+        tagsSpan.appendChild(more);
+      }
+    }
+    footer.appendChild(tagsSpan);
+
     card.appendChild(text);
 
     if (note.photos?.length) {
@@ -1312,8 +1659,53 @@ async function renderFolders() {
   }
 }
 
+async function renderTags() {
+  const tags = await getAllTags();
+  tags.sort((a, b) => b.id - a.id);
+
+  if (!tags.length) {
+    tagsList.innerHTML = '<p class="empty-state">Henüz etiket yok. Sağ alttaki + butonuna bas!</p>';
+    return;
+  }
+
+  tagsList.innerHTML = '';
+
+  for (const tag of tags) {
+    const card = document.createElement('div');
+    card.className = 'note-card tag-card';
+    card.dataset.id = tag.id;
+
+    const text = document.createElement('div');
+    text.className = 'note-text';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'tag-title-row';
+
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.textContent = tag.name;
+    if (tag.color) chip.style.backgroundColor = tag.color;
+    if (tag.fontColor) chip.style.color = tag.fontColor;
+
+    titleRow.appendChild(chip);
+    text.appendChild(titleRow);
+
+    const footer = document.createElement('div');
+    footer.className = 'note-footer';
+    const dateLabel = document.createElement('span');
+    dateLabel.className = 'note-date';
+    const dateSource = tag.updatedAt ?? tag.createdAt;
+    dateLabel.textContent = dateSource ? formatDate(dateSource) : '';
+    footer.appendChild(dateLabel);
+
+    card.appendChild(text);
+    card.appendChild(footer);
+    tagsList.appendChild(card);
+  }
+}
+
 async function renderAll() {
-  await Promise.all([renderNotes(), renderFolders()]);
+  await Promise.all([renderNotes(), renderFolders(), renderTags()]);
 }
 
 function setupNotesFilterBar() {
@@ -1595,6 +1987,18 @@ foldersList.addEventListener('click', (e) => {
   getAllFolders().then((folders) => {
     const folder = folders.find((f) => f.id === id);
     if (folder) openFolderEditor(folder);
+  }).catch(() => {});
+});
+
+// --- Etiket kartı tıklama ---
+
+tagsList.addEventListener('click', (e) => {
+  const card = e.target.closest('.tag-card');
+  if (!card) return;
+  const id = Number(card.dataset.id);
+  getAllTags().then((tags) => {
+    const tag = tags.find((t) => t.id === id);
+    if (tag) openTagEditor(tag);
   }).catch(() => {});
 });
 
