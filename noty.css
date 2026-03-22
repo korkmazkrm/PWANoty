@@ -19,6 +19,7 @@
   --accent-hover:    #6d28d9;
   --accent-active:   #5b21b6;
   --delete:          #f38ba8;
+  --menu-background: #ffffff;
 }
 
 [data-theme="light"] {
@@ -38,10 +39,17 @@
   --accent-hover:    #6d28d9;
   --accent-active:   #5b21b6;
   --delete:          #d1145a;
+  --menu-background: #ffffff;
+}
+
+html {
+  font-optical-sizing: auto;
+  -webkit-text-size-adjust: 100%; /* iOS'ta yan çevirince fontun sapıtmasını engeller */
 }
 
 body {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-variation-settings: "wght" 450;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
@@ -530,6 +538,42 @@ header {
   padding: 0 1.5rem 0.25rem;
 }
 
+.editor-alarm-btn--active {
+  color: var(--accent);
+}
+
+.sheet-alarm-datetime {
+  display: block;
+  width: calc(100% - 0rem);
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.sheet-alarm-actions {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.sheet-btn.sheet-alarm-done {
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+}
+
+.sheet-menu-item.sheet-alarm-clear {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
 .note-tag-chip {
   display: inline-flex;
   align-items: center;
@@ -611,7 +655,7 @@ header {
 
 .note-title {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1.4;
   word-break: break-word;
 }
@@ -626,8 +670,43 @@ header {
 
 .note-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.note-footer-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.note-footer-end .note-folder-chip-small {
+  margin-left: 0;
+}
+
+.note-alarm-badge {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.note-attachment-badge {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.note-photo-badge {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  opacity: 0.95;
 }
 
 .note-date {
@@ -671,7 +750,7 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet {
   width: 100%;
   max-width: 640px;
-  background: var(--bg-low);
+  background: var(--menu-background);
   border-radius: 18px 18px 0 0;
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   transform: translateY(100%);
@@ -691,19 +770,19 @@ button.delete-btn:hover { background: var(--surface2); }
 }
 
 .sheet-body {
-  padding: 0.75rem 1.5rem 1.25rem;
+  padding: 0.5rem 0.75rem 1.5rem 0.75rem;
 }
 
 .sheet-title {
   font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .sheet-message {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   color: var(--subtext);
-  margin-bottom: 0.85rem;
+  margin-bottom: 2rem;
 }
 
 .sheet-actions {
@@ -712,7 +791,7 @@ button.delete-btn:hover { background: var(--surface2); }
 }
 
 .sheet-btn {
-  flex: 1;
+  /*flex: 1;*/
   border-radius: 999px;
   border: none;
   padding: 0.55rem 0.75rem;
@@ -738,7 +817,7 @@ button.delete-btn:hover { background: var(--surface2); }
   gap: 0.4rem;
   background-color: #fff;
   border-radius: 15px;
-  padding: 0.5rem;
+  padding: 0.5rem 0rem;
 }
 
 .sheet-menu-item {
@@ -751,9 +830,9 @@ button.delete-btn:hover { background: var(--surface2); }
   background: transparent;
   border: none;
   border-radius: 10px;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem 0.25rem;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-family: inherit;
   cursor: pointer;
 }
@@ -764,6 +843,27 @@ button.delete-btn:hover { background: var(--surface2); }
   text-align: center;
   opacity: 0.9;
 }
+
+/* Klasör ata listesinde şu anki seçim */
+.folder-assign-current-icon {
+  flex-shrink: 0;
+  width: 1.1em;
+  text-align: center;
+  color: var(--accent);
+  opacity: 1;
+}
+
+.folder-assign-current-spacer {
+  flex-shrink: 0;
+  width: 1.1em;
+  display: inline-block;
+}
+
+.sheet-menu-item.folder-assign-item--current {
+  background: var(--surface2);
+  border-radius: 10px;
+}
+
 /*
 .sheet-menu-item:hover {
   background: var(--surface2);
@@ -876,7 +976,7 @@ button.delete-btn:hover { background: var(--surface2); }
   font-family: inherit;
   line-height: 1.6;
   padding: 0.75rem 1.25rem;
-  margin: 0.5rem 1.5rem 1.5rem;
+  margin: 0.5rem 1.5rem 0.75rem;
   min-height: 80px;
   resize: vertical;
 }
@@ -889,7 +989,7 @@ button.delete-btn:hover { background: var(--surface2); }
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.25rem 1.5rem 0;
+  padding: 0.25rem 1.5rem 1.5rem;
 }
 
 .folder-color-label {
@@ -1011,7 +1111,7 @@ button.delete-btn:hover { background: var(--surface2); }
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0 1.5rem;
+  padding: 0 1.5rem 0.5rem;
 }
 
 .editor-bottom-bar {
@@ -1101,6 +1201,89 @@ button.delete-btn:hover { background: var(--surface2); }
 
 .audio-remove-btn:hover { background: var(--surface2); }
 
+/* ===== Dosya ekleri (editör) ===== */
+
+.editor-attachment-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0 1.5rem 0.5rem;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border2);
+}
+
+.attachment-item--pending {
+  opacity: 0.95;
+}
+
+.attachment-open-btn,
+.attachment-name-btn {
+  background: none;
+  border: none;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.attachment-name-btn {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-open-btn:hover,
+.attachment-name-btn:hover {
+  background: var(--surface2);
+}
+
+.attachment-pending-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.attachment-pending-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--subtext);
+}
+
+.attachment-remove-btn {
+  background: none;
+  border: none;
+  color: var(--delete);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.attachment-remove-btn:hover {
+  background: var(--surface2);
+}
+
 /* ===== Ses bloğu (not kartı) ===== */
 
 .card-audio-block {
@@ -1114,23 +1297,6 @@ button.delete-btn:hover { background: var(--surface2); }
   height: 36px;
   border-radius: 8px;
   display: block;
-}
-
-/* ===== Not fotoğraf grid ===== */
-
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 0.4rem;
-}
-
-.note-photo {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border2);
-  cursor: pointer;
 }
 
 /* ===== Lightbox ===== */

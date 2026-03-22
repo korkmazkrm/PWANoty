@@ -1,5 +1,6 @@
 import { getAllNotes, saveNote, deleteNote, getAllFolders, saveFolder, deleteFolder, getAllTags, saveTag, deleteTag } from './db.js';
 import { savePhoto, loadPhoto, deletePhoto } from './opfs.js';
+import { initAlarmScheduler, requestNotificationPermissionForAlarm } from './alarms.js';
 
 // --- DOM ---
 
@@ -147,6 +148,9 @@ async function cleanupTrashExpired() {
     if (note.audios?.length) {
       await Promise.all(note.audios.map((name) => deletePhoto(name).catch(() => {})));
     }
+    for (const att of normalizeAttachments(note.attachments)) {
+      await deletePhoto(att.stored).catch(() => {});
+    }
     await deleteNote(note.id).catch(() => {});
   }
 }
@@ -239,6 +243,20 @@ function stripHtml(html) {
   return (el.textContent || el.innerText || '').trim();
 }
 
+function isoToDatetimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function datetimeLocalToIso(val) {
+  if (!val || !String(val).trim()) return null;
+  const d = new Date(val);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 // --- Ses kaydı yardımcıları ---
 
 function getSupportedAudioMime() {
@@ -250,6 +268,29 @@ function audioExt(mimeType) {
   if (mimeType.includes('ogg')) return 'ogg';
   if (mimeType.includes('mp4')) return 'm4a';
   return 'webm';
+}
+
+function safeFileExt(filename) {
+  const m = String(filename).match(/\.([a-zA-Z0-9]{1,24})$/);
+  return m ? m[1].toLowerCase() : 'bin';
+}
+
+function normalizeAttachments(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((a) => a && typeof a.stored === 'string' && typeof a.name === 'string');
+}
+
+async function downloadAttachmentFile(att) {
+  try {
+    const blob = await loadPhoto(att.stored);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = att.name;
+    a.rel = 'noopener';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (_) {}
 }
 
 // --- Editör (yeni not & düzenleme) ---
@@ -265,9 +306,15 @@ function openEditor(note) {
   let removedAudios = [];
   let newAudios     = [];
 
+  let keptAttachments = isNew ? [] : normalizeAttachments(note.attachments);
+  let removedAttachmentStorages = [];
+  let newAttachments = [];
+
   let mediaRecorder   = null;
   let recordingChunks = [];
   let recordingTimer  = null;
+
+  let alarmDatetimeLocal = isNew ? '' : isoToDatetimeLocal(note.alarmAt);
 
   detailContent.innerHTML = '';
 
@@ -308,14 +355,28 @@ function openEditor(note) {
     const title    = titleInput.value.trim();
     const bodyHtml = bodyEditor.innerHTML.trim();
     const updatedText = serializeNoteText(title, bodyHtml);
-    const hasContent  = (title || bodyHtml) || keptPhotos.length || newPhotos.length || keptAudios.length || newAudios.length;
+    const hasAlarmSet = Boolean(alarmDatetimeLocal?.trim());
+    const hasContent  =
+      (title || bodyHtml) ||
+      keptPhotos.length ||
+      newPhotos.length ||
+      keptAudios.length ||
+      newAudios.length ||
+      keptAttachments.length ||
+      newAttachments.length ||
+      hasAlarmSet;
     if (!hasContent) return;
+
+    if (hasAlarmSet) {
+      await requestNotificationPermissionForAlarm();
+    }
 
     if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
     clearInterval(recordingTimer);
 
     await Promise.all(removedPhotos.map((n) => deletePhoto(n).catch(() => {})));
     await Promise.all(removedAudios.map((n) => deletePhoto(n).catch(() => {})));
+    await Promise.all(removedAttachmentStorages.map((n) => deletePhoto(n).catch(() => {})));
 
     const id = isNew ? Date.now() : note.id;
 
@@ -335,15 +396,28 @@ function openEditor(note) {
       newAudioNames.push(name);
     }
 
+    const newAttachmentRecords = [];
+    for (let i = 0; i < newAttachments.length; i++) {
+      const f = newAttachments[i].file;
+      const ext = safeFileExt(f.name);
+      const stored = `${id}-file-${Date.now()}-${i}.${ext}`;
+      await savePhoto(stored, f);
+      newAttachmentRecords.push({ name: f.name, stored });
+    }
+
     const folderId = selectedFolder ? selectedFolder.id : null;
+
+    const alarmAt = datetimeLocalToIso(alarmDatetimeLocal);
 
     const base = {
       id,
       text: updatedText,
       photos: [...keptPhotos, ...newPhotoNames],
       audios: [...keptAudios, ...newAudioNames],
+      attachments: [...keptAttachments, ...newAttachmentRecords],
       folderId,
-      tagIds: selectedTags.map((t) => t.id)
+      tagIds: selectedTags.map((t) => t.id),
+      alarmAt
     };
 
     const record = isNew
@@ -574,6 +648,95 @@ function openEditor(note) {
     });
   });
 
+  const alarmBtn = document.createElement('button');
+  alarmBtn.type = 'button';
+  alarmBtn.className = 'editor-icon-btn editor-alarm-btn';
+  alarmBtn.innerHTML = '<i class="fa-solid fa-bell"></i>';
+  alarmBtn.title = 'Alarm';
+
+  const updateAlarmBtn = () => {
+    const has = Boolean(alarmDatetimeLocal?.trim());
+    alarmBtn.classList.toggle('editor-alarm-btn--active', has);
+    alarmBtn.title = has ? 'Alarm (ayarlı)' : 'Alarm';
+  };
+  updateAlarmBtn();
+
+  alarmBtn.addEventListener('click', () => {
+    const backup = alarmDatetimeLocal;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet sheet-bottom';
+
+    const handle = document.createElement('div');
+    handle.className = 'sheet-handle';
+
+    const sheetBody = document.createElement('div');
+    sheetBody.className = 'sheet-body';
+
+    const sheetTitle = document.createElement('p');
+    sheetTitle.className = 'sheet-title';
+    sheetTitle.textContent = 'Alarm';
+
+    const input = document.createElement('input');
+    input.type = 'datetime-local';
+    input.className = 'sheet-alarm-datetime';
+    input.value = alarmDatetimeLocal;
+
+    const actions = document.createElement('div');
+    actions.className = 'sheet-note-actions sheet-alarm-actions';
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'sheet-menu-item sheet-alarm-clear';
+    clearBtn.textContent = 'Alarmı kaldır';
+
+    const doneBtn = document.createElement('button');
+    doneBtn.type = 'button';
+    doneBtn.className = 'sheet-btn sheet-btn-cancel sheet-alarm-done';
+    doneBtn.textContent = 'Tamam';
+
+    actions.append(clearBtn, doneBtn);
+    sheetBody.append(sheetTitle, input, actions);
+    sheet.append(handle, sheetBody);
+    overlay.appendChild(sheet);
+    document.body.appendChild(overlay);
+
+    const closeOverlay = () => {
+      overlay.classList.remove('open');
+      sheet.classList.remove('open');
+      setTimeout(() => overlay.remove(), 180);
+    };
+
+    clearBtn.addEventListener('click', () => {
+      alarmDatetimeLocal = '';
+      input.value = '';
+      updateAlarmBtn();
+      closeOverlay();
+    });
+
+    doneBtn.addEventListener('click', () => {
+      alarmDatetimeLocal = input.value;
+      updateAlarmBtn();
+      closeOverlay();
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        alarmDatetimeLocal = backup;
+        updateAlarmBtn();
+        closeOverlay();
+      }
+    });
+
+    requestAnimationFrame(() => {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+      input.focus();
+    });
+  });
+
   // --- Zengin metin alanı (contenteditable) ---
   const bodyEditor = document.createElement('div');
   bodyEditor.className = 'editor-body-rich';
@@ -719,6 +882,61 @@ function openEditor(note) {
     });
   }
 
+  // --- Dosya ekleri şeridi ---
+  const attachmentStrip = document.createElement('div');
+  attachmentStrip.className = 'editor-attachment-strip';
+
+  function renderAttachmentStrip() {
+    attachmentStrip.innerHTML = '';
+    keptAttachments.forEach((att, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'attachment-item';
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'attachment-open-btn';
+      openBtn.title = 'İndir / aç';
+      openBtn.innerHTML = '<i class="fa-solid fa-file"></i>';
+      openBtn.addEventListener('click', () => downloadAttachmentFile(att));
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'attachment-name-btn';
+      nameBtn.textContent = att.name;
+      nameBtn.title = att.name;
+      nameBtn.addEventListener('click', () => downloadAttachmentFile(att));
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'attachment-remove-btn';
+      removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      removeBtn.addEventListener('click', () => {
+        const [gone] = keptAttachments.splice(i, 1);
+        removedAttachmentStorages.push(gone.stored);
+        renderAttachmentStrip();
+      });
+      wrap.append(openBtn, nameBtn, removeBtn);
+      attachmentStrip.appendChild(wrap);
+    });
+    newAttachments.forEach((item, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'attachment-item attachment-item--pending';
+      const icon = document.createElement('span');
+      icon.className = 'attachment-pending-icon';
+      icon.innerHTML = '<i class="fa-solid fa-file"></i>';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'attachment-pending-name';
+      nameEl.textContent = item.file.name;
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'attachment-remove-btn';
+      removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      removeBtn.addEventListener('click', () => {
+        newAttachments.splice(i, 1);
+        renderAttachmentStrip();
+      });
+      wrap.append(icon, nameEl, removeBtn);
+      attachmentStrip.appendChild(wrap);
+    });
+  }
+
   // --- Alt toolbar ---
   const fileInput    = document.createElement('input');
   fileInput.type     = 'file';
@@ -733,6 +951,18 @@ function openEditor(note) {
     renderEditStrip();
   });
 
+  const attachmentFileInput = document.createElement('input');
+  attachmentFileInput.type = 'file';
+  attachmentFileInput.multiple = true;
+  attachmentFileInput.hidden = true;
+  attachmentFileInput.addEventListener('change', () => {
+    for (const file of attachmentFileInput.files) {
+      newAttachments.push({ file });
+    }
+    attachmentFileInput.value = '';
+    renderAttachmentStrip();
+  });
+
   const bottomBar = document.createElement('div');
   bottomBar.className = 'editor-bottom-bar';
 
@@ -741,6 +971,13 @@ function openEditor(note) {
   photoAddBtn.title     = 'Fotoğraf Ekle';
   photoAddBtn.innerHTML = '<i class="fa-solid fa-camera"></i>';
   photoAddBtn.addEventListener('click', () => fileInput.click());
+
+  const fileAttachBtn = document.createElement('button');
+  fileAttachBtn.type = 'button';
+  fileAttachBtn.className = 'editor-icon-btn';
+  fileAttachBtn.title = 'Dosya ekle';
+  fileAttachBtn.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i>';
+  fileAttachBtn.addEventListener('click', () => attachmentFileInput.click());
 
   const micBtn = document.createElement('button');
   micBtn.className = 'editor-icon-btn';
@@ -800,10 +1037,11 @@ function openEditor(note) {
     }
   });
 
-  bottomBar.append(folderBtn, tagBtn, photoAddBtn, fileInput, micBtn, recIndicator, formatToggleBtn);
-  detailContent.append(topBar, titleInput, folderRow, tagsRow, bodyEditor, strip, audioStrip, formatBarAboveBottom, bottomBar);
+  bottomBar.append(folderBtn, tagBtn, alarmBtn, photoAddBtn, fileAttachBtn, fileInput, attachmentFileInput, micBtn, recIndicator, formatToggleBtn);
+  detailContent.append(topBar, titleInput, folderRow, tagsRow, bodyEditor, strip, audioStrip, attachmentStrip, formatBarAboveBottom, bottomBar);
   renderEditStrip();
   renderAudioStrip();
+  renderAttachmentStrip();
 
   // view-detail'i göster, diğerlerini gizle
   viewList.classList.add('hidden');
@@ -896,7 +1134,7 @@ function openFolderEditor(folder) {
     showListViews();
   });
 
-  detailContent.append(topBar, nameInput, colorRow, descInput);
+  detailContent.append(topBar, nameInput, descInput, colorRow);
 
   viewList.classList.add('hidden');
   viewFolders.classList.add('hidden');
@@ -1254,6 +1492,9 @@ async function showNoteActionsSheet(noteId) {
     if (note.audios?.length) {
       await Promise.all(note.audios.map((name) => deletePhoto(name).catch(() => {})));
     }
+    for (const att of normalizeAttachments(note.attachments)) {
+      await deletePhoto(att.stored).catch(() => {});
+    }
     await deleteNote(note.id);
     await renderAll();
     close();
@@ -1301,6 +1542,19 @@ async function showNoteActionsSheet(noteId) {
       } catch (_) {}
     }
 
+    const newAttachmentRecords = [];
+    const srcAtt = normalizeAttachments(note.attachments);
+    for (let i = 0; i < srcAtt.length; i++) {
+      const att = srcAtt[i];
+      try {
+        const file = await loadPhoto(att.stored);
+        const ext = safeFileExt(att.name);
+        const newName = `${newId}-file-${Date.now()}-${i}.${ext}`;
+        await savePhoto(newName, file);
+        newAttachmentRecords.push({ name: att.name, stored: newName });
+      } catch (_) {}
+    }
+
     const copyNote = {
       id: newId,
       text: note.text,
@@ -1308,8 +1562,10 @@ async function showNoteActionsSheet(noteId) {
       tagIds: [...(note.tagIds ?? [])],
       photos: newPhotoNames,
       audios: newAudioNames,
+      attachments: newAttachmentRecords,
       archived: false,
       deletedAt: null,
+      alarmAt: null,
       createdAt: now,
       updatedAt: now
     };
@@ -1328,17 +1584,30 @@ async function showNoteActionsSheet(noteId) {
     overlayInner.className = 'sheet-overlay';
     const sheetInner = document.createElement('div');
     sheetInner.className = 'sheet sheet-bottom';
-    const items = folders.map((f) => `
-      <button class="sheet-menu-item folder-assign-item" data-id="${f.id}">
+
+    const currentFolderId = note.folderId != null ? Number(note.folderId) : null;
+    const folderAssignLeading = (isCurrent) =>
+      isCurrent
+        ? '<i class="fa-solid fa-check folder-assign-current-icon" aria-hidden="true"></i>'
+        : '<span class="folder-assign-current-spacer" aria-hidden="true"></span>';
+
+    const items = folders.map((f) => {
+      const isCurrent = currentFolderId !== null && currentFolderId === Number(f.id);
+      return `
+      <button type="button" class="sheet-menu-item folder-assign-item${isCurrent ? ' folder-assign-item--current' : ''}" data-id="${f.id}">
+        ${folderAssignLeading(isCurrent)}
         <span class="folder-color-dot" style="${f.color ? `background:${f.color}` : 'background:transparent'}"></span>
         <span>${f.name}</span>
-      </button>
-    `).join('');
+      </button>`;
+    }).join('');
+
+    const noneCurrent = currentFolderId === null;
     sheetInner.innerHTML = `
       <div class="sheet-handle"></div>
       <div class="sheet-body">
         <div class="sheet-note-actions">
-          <button class="sheet-menu-item folder-assign-item" data-id="">
+          <button type="button" class="sheet-menu-item folder-assign-item${noneCurrent ? ' folder-assign-item--current' : ''}" data-id="">
+            ${folderAssignLeading(noneCurrent)}
             <span>Hiçbir klasör yok</span>
           </button>
           ${items}
@@ -1413,23 +1682,6 @@ function attachPhoto(name, img) {
       img.addEventListener('load', () => URL.revokeObjectURL(url));
     })
     .catch(() => {});
-}
-
-// --- Not kartlarındaki fotoğrafları async yükle ---
-
-async function loadNotePhotos(photoNames, container) {
-  for (const name of photoNames) {
-    try {
-      const file = await loadPhoto(name);
-      const url  = URL.createObjectURL(file);
-      const img  = document.createElement('img');
-      img.src       = url;
-      img.className = 'note-photo';
-      img.alt       = name;
-      img.addEventListener('load', () => URL.revokeObjectURL(url));
-      container.appendChild(img);
-    } catch { /* sessizce geç */ }
-  }
 }
 
 // --- Not kartlarındaki sesleri async yükle ---
@@ -1558,8 +1810,6 @@ async function renderNotes() {
         }
       }
     }
-    footer.append(dateSpan, folderSpan);
-
     const tagsSpan = document.createElement('span');
     tagsSpan.className = 'note-tags-inline';
     const ids = note.tagIds ?? [];
@@ -1580,16 +1830,37 @@ async function renderNotes() {
         tagsSpan.appendChild(more);
       }
     }
-    footer.appendChild(tagsSpan);
+
+    const footerEnd = document.createElement('div');
+    footerEnd.className = 'note-footer-end';
+    if (note.alarmAt) {
+      const alarmBadge = document.createElement('span');
+      alarmBadge.className = 'note-alarm-badge';
+      alarmBadge.title = 'Alarm kurulu';
+      alarmBadge.setAttribute('aria-label', 'Alarm kurulu');
+      alarmBadge.innerHTML = '<i class="fa-solid fa-bell"></i>';
+      footerEnd.appendChild(alarmBadge);
+    }
+    if (note.photos?.length) {
+      const photoBadge = document.createElement('span');
+      photoBadge.className = 'note-photo-badge';
+      photoBadge.title = 'Fotoğraf eklendi';
+      photoBadge.setAttribute('aria-label', 'Fotoğraf eklendi');
+      photoBadge.innerHTML = '<i class="fa-solid fa-image"></i>';
+      footerEnd.appendChild(photoBadge);
+    }
+    if (normalizeAttachments(note.attachments).length) {
+      const fileBadge = document.createElement('span');
+      fileBadge.className = 'note-attachment-badge';
+      fileBadge.title = 'Dosya eki var';
+      fileBadge.setAttribute('aria-label', 'Dosya eki var');
+      fileBadge.innerHTML = '<i class="fa-solid fa-file"></i>';
+      footerEnd.appendChild(fileBadge);
+    }
+    footerEnd.append(folderSpan, tagsSpan);
+    footer.append(dateSpan, footerEnd);
 
     card.appendChild(text);
-
-    if (note.photos?.length) {
-      const grid = document.createElement('div');
-      grid.className = 'photo-grid';
-      card.appendChild(grid);
-      loadNotePhotos(note.photos, grid);
-    }
 
     if (note.audios?.length) {
       const audioBlock = document.createElement('div');
@@ -2006,7 +2277,16 @@ tagsList.addEventListener('click', (e) => {
 
 if ('serviceWorker' in navigator) {
   try {
-    await navigator.serviceWorker.register('./service-worker.js');
+    const reg = await navigator.serviceWorker.register('./service-worker.js', {
+      updateViaCache: 'none'
+    });
+    const pingUpdate = () => {
+      reg.update().catch(() => {});
+    };
+    window.addEventListener('focus', pingUpdate);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') pingUpdate();
+    });
   } catch (err) {
     console.error('SW kaydı başarısız:', err);
   }
@@ -2016,3 +2296,5 @@ setupLongPressOnNotes();
 setupNotesFilterBar();
 await cleanupTrashExpired();
 await renderAll();
+
+initAlarmScheduler({ onAfterAlarm: () => renderAll() });
