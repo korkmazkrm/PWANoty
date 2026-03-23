@@ -1,5 +1,5 @@
 // Her dağıtımda veya precache listesini değiştirince +1 yapın; eski önbellek temizlenir.
-const CACHE_NAME = 'pwa-noty-v22';
+const CACHE_NAME = 'pwa-noty-v23';
 // Uygulama kök veya alt dizinde olsun, SW scope'una göre asset'leri önbelleğe al (ilk kurulum / çevrimdışı)
 const ASSET_PATHS = [
   '',
@@ -7,7 +7,6 @@ const ASSET_PATHS = [
   'manifest.json',
   'noty.css',
   'noty.js',
-  'noty-viewport.js',
   'noty-dom.js',
   'noty-utils.js',
   'noty-theme.js',
