@@ -46,7 +46,10 @@ html {
   font-optical-sizing: auto;
   -webkit-text-size-adjust: 100%; /* iOS'ta yan çevirince fontun sapıtmasını engeller */
   height: 100%;
+  /* iOS PWA / Safari: 100dvh bazen gerçek pencereden kısa kalır, altta beyaz şerit görünür */
+  height: -webkit-fill-available;
   overflow: hidden;
+  background: var(--bg);
 }
 
 body {
@@ -54,9 +57,9 @@ body {
   font-variation-settings: "wght" 450;
   background: var(--bg);
   color: var(--text);
+  height: 100%;
   min-height: 100dvh;
-  height: 100dvh;
-  max-height: 100dvh;
+  min-height: -webkit-fill-available;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
@@ -246,6 +249,7 @@ main {
   -webkit-overflow-scrolling: touch;
   padding: 1.5rem 0.75rem;
   padding-bottom: 5.5rem;
+  background: var(--bg);
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
