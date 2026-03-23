@@ -1753,7 +1753,7 @@ async function renderNotes() {
     actionsBtn.className = 'note-actions-btn';
     actionsBtn.title = 'Not işlemleri';
     actionsBtn.setAttribute('aria-label', 'Not işlemleri');
-    actionsBtn.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+    actionsBtn.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
     actionsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       showNoteActionsSheet(note.id);
