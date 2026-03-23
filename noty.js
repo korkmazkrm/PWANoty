@@ -41,6 +41,7 @@ let sortBy = 'createdAt';   // 'createdAt' | 'updatedAt' | 'title'
 let sortOrder = 'desc';     // 'asc' | 'desc'
 let currentTrashFilter = 'active'; // 'active' = çöp değil, 'trash' = çöp kutusu
 let searchQuery = '';
+let editorCloseGuard = null;
 
 // --- Tema ---
 
@@ -183,7 +184,15 @@ function showListViews() {
   fab.classList.remove('hidden');
 }
 
-function navigateTo(viewName) {
+async function navigateTo(viewName) {
+  if (viewDetail && !viewDetail.classList.contains('hidden') && editorCloseGuard) {
+    const ok = await editorCloseGuard();
+    if (!ok) {
+      closeSidebar();
+      return;
+    }
+    editorCloseGuard = null;
+  }
   if (viewName === 'add') { openEditor(null); return; }
   if (viewName === 'folders') {
     currentMode = 'folders';
@@ -313,6 +322,7 @@ function openEditor(note) {
   let mediaRecorder   = null;
   let recordingChunks = [];
   let recordingTimer  = null;
+  let hasUnsavedChanges = () => false;
 
   let alarmDatetimeLocal = isNew ? '' : isoToDatetimeLocal(note.alarmAt);
 
@@ -325,15 +335,28 @@ function openEditor(note) {
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'editor-cancel-btn';
   cancelBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i>';
-  cancelBtn.addEventListener('click', () => {
+  const cleanupTransientResources = () => {
     if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
     clearInterval(recordingTimer);
     newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
     newAudios.forEach((a) => URL.revokeObjectURL(a.url));
+  };
+  const closeEditorToList = () => {
     viewList.classList.remove('hidden');
     viewDetail.classList.add('hidden');
     fab.classList.remove('hidden');
     navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === 'list'));
+  };
+  cancelBtn.addEventListener('click', async () => {
+    if (editorCloseGuard) {
+      const ok = await editorCloseGuard();
+      if (!ok) return;
+      editorCloseGuard = null;
+      closeEditorToList();
+      return;
+    }
+    cleanupTransientResources();
+    closeEditorToList();
   });
 
   const dateLabel = document.createElement('span');
@@ -405,7 +428,7 @@ function openEditor(note) {
       newAttachmentRecords.push({ name: f.name, stored });
     }
 
-    const folderId = selectedFolder ? selectedFolder.id : null;
+    const folderId = selectedFolderId ?? null;
 
     const alarmAt = datetimeLocalToIso(alarmDatetimeLocal);
 
@@ -416,7 +439,7 @@ function openEditor(note) {
       audios: [...keptAudios, ...newAudioNames],
       attachments: [...keptAttachments, ...newAttachmentRecords],
       folderId,
-      tagIds: selectedTags.map((t) => t.id),
+      tagIds: [...selectedTagIds],
       alarmAt
     };
 
@@ -429,6 +452,7 @@ function openEditor(note) {
     newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
     newAudios.forEach((a) => URL.revokeObjectURL(a.url));
     await renderAll();
+    editorCloseGuard = null;
     navigateTo('list');
   });
 
@@ -442,28 +466,64 @@ function openEditor(note) {
   const parsed = isNew ? { title: '', bodyHtml: '', plainBody: '' } : parseNoteText(note.text);
   titleInput.value = parsed.title;
   const initialFolderId = isNew ? currentFolderFilterId : (note.folderId ?? null);
+  const initialTagIds = isNew ? [] : [...(note.tagIds ?? [])].sort((a, b) => a - b);
+  const initialAlarmDatetimeLocal = alarmDatetimeLocal || '';
 
-  // --- Klasör satırı ---
-  const folderRow = document.createElement('div');
-  folderRow.className = 'note-folder-row';
+  // --- Klasör + Etiket satırı ---
+  const metaRow = document.createElement('div');
+  metaRow.className = 'note-tags-row';
+  metaRow.style.display = 'none';
+  const folderChip = document.createElement('span');
+  folderChip.className = 'note-folder-chip-small';
   const folderIcon = document.createElement('span');
-  folderIcon.className = 'note-folder-icon';
+  folderIcon.className = 'note-folder-chip-icon';
   folderIcon.innerHTML = '<i class="fa-solid fa-folder"></i>';
   const folderText = document.createElement('span');
   folderText.className = 'note-folder-text';
-  folderRow.append(folderIcon, folderText);
+  folderChip.append(folderIcon, folderText);
+  metaRow.append(folderChip);
 
   let selectedFolder = null;
+  let selectedFolderId = initialFolderId ?? null;
   let selectedTags = [];
+  let selectedTagIds = [...initialTagIds];
+
+  const renderMetaRow = () => {
+    metaRow.innerHTML = '';
+
+    if (selectedFolder) {
+      folderText.textContent = selectedFolder.name;
+      folderChip.style.backgroundColor = selectedFolder.color || '';
+      folderChip.style.color = selectedFolder.fontColor || '';
+      metaRow.appendChild(folderChip);
+    }
+
+    for (const t of selectedTags) {
+      const chip = document.createElement('span');
+      chip.className = 'note-tag-chip-small';
+      const icon = document.createElement('span');
+      icon.className = 'note-tag-chip-icon';
+      icon.innerHTML = '<i class="fa-solid fa-tag"></i>';
+      chip.appendChild(icon);
+      chip.appendChild(document.createTextNode(t.name));
+      if (t.color) chip.style.backgroundColor = t.color;
+      if (t.fontColor) chip.style.color = t.fontColor;
+      metaRow.appendChild(chip);
+    }
+
+    metaRow.style.display = metaRow.childNodes.length ? 'flex' : 'none';
+  };
 
   function updateFolderRow() {
     if (!selectedFolder) {
-      folderRow.style.display = 'none';
       folderText.textContent = '';
+      renderMetaRow();
       return;
     }
-    folderRow.style.display = 'inline-flex';
     folderText.textContent = selectedFolder.name;
+    folderChip.style.backgroundColor = selectedFolder.color || '';
+    folderChip.style.color = selectedFolder.fontColor || '';
+    renderMetaRow();
   }
 
   async function initFolderRow() {
@@ -474,45 +534,31 @@ function openEditor(note) {
     try {
       const folders = await getAllFolders();
       selectedFolder = folders.find((f) => f.id === initialFolderId) ?? null;
+      selectedFolderId = selectedFolder ? selectedFolder.id : null;
       updateFolderRow();
     } catch {
       selectedFolder = null;
+      selectedFolderId = null;
       updateFolderRow();
     }
   }
 
-  // --- Etiket satırı ---
-
-  const tagsRow = document.createElement('div');
-  tagsRow.className = 'note-tags-row';
-
   const updateTagsRow = () => {
-    tagsRow.innerHTML = '';
-    if (!selectedTags.length) {
-      tagsRow.style.display = 'none';
-      return;
-    }
-    tagsRow.style.display = 'flex';
-    for (const t of selectedTags) {
-      const chip = document.createElement('span');
-      chip.className = 'note-tag-chip';
-      chip.textContent = t.name;
-      if (t.color) chip.style.backgroundColor = t.color;
-      if (t.fontColor) chip.style.color = t.fontColor;
-      tagsRow.appendChild(chip);
-    }
+    renderMetaRow();
   };
 
   const initTags = async () => {
     const ids = isNew ? [] : (note.tagIds ?? []);
-    if (!ids.length) { selectedTags = []; updateTagsRow(); return; }
+    if (!ids.length) { selectedTags = []; selectedTagIds = []; updateTagsRow(); return; }
     try {
       const tags = await getAllTags();
       const map = new Map(tags.map((t) => [t.id, t]));
       selectedTags = ids.map((id) => map.get(id)).filter(Boolean);
+      selectedTagIds = [...ids].sort((a, b) => a - b);
       updateTagsRow();
     } catch {
       selectedTags = [];
+      selectedTagIds = [...ids].sort((a, b) => a - b);
       updateTagsRow();
     }
   };
@@ -556,9 +602,11 @@ function openEditor(note) {
       const id = btn.dataset.id;
       if (!id) {
         selectedFolder = null;
+        selectedFolderId = null;
       } else {
         const fid = Number(id);
         selectedFolder = folders.find((f) => f.id === fid) ?? null;
+        selectedFolderId = fid;
       }
       updateFolderRow();
       close();
@@ -630,6 +678,7 @@ function openEditor(note) {
       if (done) {
         const map = new Map(tags.map((t) => [t.id, t]));
         selectedTags = [...selected].map((id) => map.get(id)).filter(Boolean);
+        selectedTagIds = [...selected].sort((a, b) => a - b);
         updateTagsRow();
         close();
         return;
@@ -749,6 +798,41 @@ function openEditor(note) {
   } else {
     bodyEditor.textContent = parsed.plainBody;
   }
+  const initialTitleNormalized = (parsed.title || '').trim();
+  const initialBodyNormalized = (bodyEditor.innerHTML || '').trim();
+
+  const arraysEqual = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  hasUnsavedChanges = () => {
+    const currentTitle = titleInput.value.trim();
+    const currentBody = (bodyEditor.innerHTML || '').trim();
+    const currentFolderId = selectedFolderId ?? null;
+    const currentTagIds = [...selectedTagIds].sort((a, b) => a - b);
+    const currentAlarm = alarmDatetimeLocal || '';
+
+    if (currentTitle !== initialTitleNormalized) return true;
+    if (currentBody !== initialBodyNormalized) return true;
+    if (currentFolderId !== (initialFolderId ?? null)) return true;
+    if (!arraysEqual(currentTagIds, initialTagIds)) return true;
+    if (currentAlarm !== initialAlarmDatetimeLocal) return true;
+    if (newPhotos.length || removedPhotos.length) return true;
+    if (newAudios.length || removedAudios.length) return true;
+    if (newAttachments.length || removedAttachmentStorages.length) return true;
+    return false;
+  };
+  editorCloseGuard = async () => {
+    if (!hasUnsavedChanges()) {
+      cleanupTransientResources();
+      return true;
+    }
+    const ok = await showConfirmSheet({
+      title: 'Kaydedilmemiş değişiklikler var',
+      message: 'Notta kaydedilmemiş değişiklikler var. Çıkarsan değişiklikler kaybolacak.',
+      confirmLabel: 'Evet, çık',
+      cancelLabel: 'Vazgeç'
+    });
+    if (ok) cleanupTransientResources();
+    return ok;
+  };
 
   titleInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') {
@@ -1038,7 +1122,7 @@ function openEditor(note) {
   });
 
   bottomBar.append(folderBtn, tagBtn, alarmBtn, photoAddBtn, fileAttachBtn, fileInput, attachmentFileInput, micBtn, recIndicator, formatToggleBtn);
-  detailContent.append(topBar, titleInput, folderRow, tagsRow, bodyEditor, strip, audioStrip, attachmentStrip, formatBarAboveBottom, bottomBar);
+  detailContent.append(topBar, titleInput, metaRow, bodyEditor, strip, audioStrip, attachmentStrip, formatBarAboveBottom, bottomBar);
   renderEditStrip();
   renderAudioStrip();
   renderAttachmentStrip();
@@ -1274,7 +1358,9 @@ function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.class
 menuBtn.addEventListener('click', openSidebar);
 sidebarClose.addEventListener('click', closeSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
-navItems.forEach((btn) => btn.addEventListener('click', () => navigateTo(btn.dataset.view)));
+navItems.forEach((btn) => btn.addEventListener('click', () => {
+  navigateTo(btn.dataset.view).catch(() => {});
+}));
 
 // --- Yardımcı ---
 
@@ -1818,7 +1904,11 @@ async function renderNotes() {
       for (const t of show) {
         const chip = document.createElement('span');
         chip.className = 'note-tag-chip-small';
-        chip.textContent = t.name;
+        const icon = document.createElement('span');
+        icon.className = 'note-tag-chip-icon';
+        icon.innerHTML = '<i class="fa-solid fa-tag"></i>';
+        chip.appendChild(icon);
+        chip.appendChild(document.createTextNode(t.name));
         if (t.color) chip.style.backgroundColor = t.color;
         if (t.fontColor) chip.style.color = t.fontColor;
         tagsSpan.appendChild(chip);
@@ -1857,7 +1947,12 @@ async function renderNotes() {
       fileBadge.innerHTML = '<i class="fa-solid fa-file"></i>';
       footerEnd.appendChild(fileBadge);
     }
-    footerEnd.append(folderSpan, tagsSpan);
+    if (folderSpan.childNodes.length) {
+      footerEnd.appendChild(folderSpan);
+    }
+    if (tagsSpan.childNodes.length) {
+      footerEnd.appendChild(tagsSpan);
+    }
     footer.append(dateSpan, footerEnd);
 
     card.appendChild(text);
@@ -2228,6 +2323,9 @@ function setupLongPressOnNotes() {
 
   notesList.addEventListener('mousedown', pressStart);
   notesList.addEventListener('touchstart', pressStart);
+  notesList.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.note-card')) e.preventDefault();
+  });
   notesList.addEventListener('mouseup', pressEnd);
   notesList.addEventListener('mouseleave', pressEnd);
   notesList.addEventListener('touchend', pressEnd);
