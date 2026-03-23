@@ -5,6 +5,7 @@ export const notesSearchClear = document.getElementById('notesSearchClear');
 export const foldersList = document.getElementById('foldersList');
 export const tagsList = document.getElementById('tagsList');
 export const noteCount = document.getElementById('noteCount');
+export const appHeader = document.getElementById('appHeader');
 export const menuBtn = document.getElementById('menuBtn');
 export const sidebar = document.getElementById('sidebar');
 export const sidebarOverlay = document.getElementById('sidebarOverlay');

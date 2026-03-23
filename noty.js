@@ -2,6 +2,7 @@ import { getAllNotes, saveNote, deleteNote, getAllFolders, saveFolder, deleteFol
 import { savePhoto, loadPhoto, deletePhoto } from './opfs.js';
 import { initAlarmScheduler, requestNotificationPermissionForAlarm } from './alarms.js';
 import {
+  appHeader,
   appTitle,
   detailContent,
   fab,
@@ -131,12 +132,17 @@ const { openLightbox } = initLightbox({ lightbox, lightboxImg, lightboxClose });
 
 // --- Navigasyon ---
 
+function setAppHeaderVisible(visible) {
+  appHeader?.classList.toggle('hidden', !visible);
+}
+
 function showListViews() {
   viewList.classList.toggle('hidden', currentMode !== 'notes');
   viewFolders.classList.toggle('hidden', currentMode !== 'folders');
   viewTags.classList.toggle('hidden', currentMode !== 'tags');
   viewDetail.classList.add('hidden');
   fab.classList.remove('hidden');
+  setAppHeaderVisible(true);
 }
 
 async function navigateTo(viewName) {
@@ -227,6 +233,7 @@ function openEditor(note) {
     viewList.classList.remove('hidden');
     viewDetail.classList.add('hidden');
     fab.classList.remove('hidden');
+    setAppHeaderVisible(true);
     navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === 'notes'));
   };
   cancelBtn.addEventListener('click', async () => {
@@ -1061,6 +1068,7 @@ function openEditor(note) {
   viewList.classList.add('hidden');
   viewDetail.classList.remove('hidden');
   fab.classList.add('hidden');
+  setAppHeaderVisible(false);
   navItems.forEach((btn) => btn.classList.remove('active'));
 
   if (isNew) {
@@ -1154,6 +1162,7 @@ function openFolderEditor(folder) {
   viewFolders.classList.add('hidden');
   viewDetail.classList.remove('hidden');
   fab.classList.add('hidden');
+  setAppHeaderVisible(false);
   navItems.forEach((btn) => btn.classList.remove('active'));
 
   nameInput.focus();
@@ -1277,6 +1286,7 @@ function openTagEditor(tag) {
   viewTags.classList.add('hidden');
   viewDetail.classList.remove('hidden');
   fab.classList.add('hidden');
+  setAppHeaderVisible(false);
   navItems.forEach((btn) => btn.classList.remove('active'));
 
   nameInput.focus();
