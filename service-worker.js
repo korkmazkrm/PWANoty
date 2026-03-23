@@ -1,7 +1,24 @@
 // Her dağıtımda veya precache listesini değiştirince +1 yapın; eski önbellek temizlenir.
-const CACHE_NAME = 'pwa-noty-v21';
+const CACHE_NAME = 'pwa-noty-v22';
 // Uygulama kök veya alt dizinde olsun, SW scope'una göre asset'leri önbelleğe al (ilk kurulum / çevrimdışı)
-const ASSET_PATHS = ['', 'index.html', 'manifest.json', 'noty.css', 'noty.js', 'alarms.js', 'db.js', 'opfs.js'];
+const ASSET_PATHS = [
+  '',
+  'index.html',
+  'manifest.json',
+  'noty.css',
+  'noty.js',
+  'noty-viewport.js',
+  'noty-dom.js',
+  'noty-utils.js',
+  'noty-theme.js',
+  'noty-lightbox.js',
+  'noty-sheet.js',
+  'noty-maintenance.js',
+  'noty-files.js',
+  'alarms.js',
+  'db.js',
+  'opfs.js'
+];
 
 function getBaseUrl() {
   const swUrl = self.location.href;

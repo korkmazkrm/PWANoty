@@ -49,6 +49,9 @@ import { initLightbox } from './noty-lightbox.js';
 import { showConfirmSheet, showInfoSheet } from './noty-sheet.js';
 import { cleanupTrashExpired } from './noty-maintenance.js';
 import { downloadAttachmentFile } from './noty-files.js';
+import { initAppViewportCssVars } from './noty-viewport.js';
+
+initAppViewportCssVars();
 
 // --- App state ---
 let currentMode = 'notes';
