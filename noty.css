@@ -525,7 +525,7 @@ header {
   margin-left: 0.5rem;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--border2);
-  border-radius: 6px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;

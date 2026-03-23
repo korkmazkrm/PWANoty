@@ -571,8 +571,10 @@ function openEditor(note) {
     sheet.className = 'sheet sheet-bottom';
     const items = folders.map((f) => `
       <button class="sheet-menu-item folder-pick-item" data-id="${f.id}">
-        <span class="folder-color-dot" style="${f.color ? `background:${f.color}` : 'background:transparent'}"></span>
-        <span>${f.name}</span>
+        <span class="note-folder-chip-small" style="${f.color ? `background:${f.color};` : ''}${f.fontColor ? `color:${f.fontColor};` : ''}">
+          <span class="note-folder-chip-icon"><i class="fa-solid fa-folder"></i></span>
+          <span>${f.name}</span>
+        </span>
       </button>
     `).join('');
     sheet.innerHTML = `
@@ -580,7 +582,10 @@ function openEditor(note) {
       <div class="sheet-body">
         <div class="sheet-note-actions">
           <button class="sheet-menu-item folder-pick-item" data-id="">
-            <span>Hiçbir klasör yok</span>
+            <span class="note-folder-chip-small">
+              <span class="note-folder-chip-icon"><i class="fa-regular fa-folder-open"></i></span>
+              <span>Klasörü kaldır</span>
+            </span>
           </button>
           ${items}
         </div>
@@ -643,7 +648,10 @@ function openEditor(note) {
         return `
           <button class="sheet-menu-item tag-pick-item" data-id="${t.id}">
             <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
-            <span style="${style}">${t.name}</span>
+            <span class="note-tag-chip-small" style="${style}">
+              <span class="note-tag-chip-icon"><i class="fa-solid fa-tag"></i></span>
+              <span>${t.name}</span>
+            </span>
           </button>
         `;
       }).join('');
@@ -1500,7 +1508,10 @@ async function showNoteActionsSheet(noteId) {
         return `
           <button class="sheet-menu-item tag-assign-item" data-id="${t.id}">
             <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
-            <span style="${style}">${t.name}</span>
+            <span class="note-tag-chip-small" style="${style}">
+              <span class="note-tag-chip-icon"><i class="fa-solid fa-tag"></i></span>
+              <span>${t.name}</span>
+            </span>
           </button>
         `;
       }).join('');
@@ -1682,8 +1693,10 @@ async function showNoteActionsSheet(noteId) {
       return `
       <button type="button" class="sheet-menu-item folder-assign-item${isCurrent ? ' folder-assign-item--current' : ''}" data-id="${f.id}">
         ${folderAssignLeading(isCurrent)}
-        <span class="folder-color-dot" style="${f.color ? `background:${f.color}` : 'background:transparent'}"></span>
-        <span>${f.name}</span>
+        <span class="note-folder-chip-small" style="${f.color ? `background:${f.color};` : ''}${f.fontColor ? `color:${f.fontColor};` : ''}">
+          <span class="note-folder-chip-icon"><i class="fa-solid fa-folder"></i></span>
+          <span>${f.name}</span>
+        </span>
       </button>`;
     }).join('');
 
@@ -1694,7 +1707,10 @@ async function showNoteActionsSheet(noteId) {
         <div class="sheet-note-actions">
           <button type="button" class="sheet-menu-item folder-assign-item${noneCurrent ? ' folder-assign-item--current' : ''}" data-id="">
             ${folderAssignLeading(noneCurrent)}
-            <span>Hiçbir klasör yok</span>
+            <span class="note-folder-chip-small">
+              <span class="note-folder-chip-icon"><i class="fa-regular fa-folder-open"></i></span>
+              <span>Klasörü kaldır</span>
+            </span>
           </button>
           ${items}
         </div>
