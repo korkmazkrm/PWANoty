@@ -45,7 +45,7 @@ import {
 } from './noty-utils.js';
 import { initTheme } from './noty-theme.js';
 import { initLightbox } from './noty-lightbox.js';
-import { showConfirmSheet } from './noty-sheet.js';
+import { showConfirmSheet, showInfoSheet } from './noty-sheet.js';
 import { cleanupTrashExpired } from './noty-maintenance.js';
 import { downloadAttachmentFile } from './noty-files.js';
 
@@ -186,6 +186,8 @@ fab.addEventListener('click', () => {
 
 function openEditor(note) {
   const isNew = note === null;
+  const MAX_NOTE_PHOTOS = 3;
+  const MAX_NOTE_ATTACHMENTS = 3;
 
   let keptPhotos    = isNew ? [] : [...(note.photos ?? [])];
   let removedPhotos = [];
@@ -916,7 +918,20 @@ function openEditor(note) {
   fileInput.multiple = true;
   fileInput.hidden   = true;
   fileInput.addEventListener('change', () => {
-    for (const file of fileInput.files) {
+    const files = Array.from(fileInput.files ?? []);
+    const remainingSlots = Math.max(0, MAX_NOTE_PHOTOS - (keptPhotos.length + newPhotos.length));
+    if (remainingSlots <= 0) {
+      showInfoSheet({ title: 'Fotoğraf limiti', message: 'Bir nota en fazla 3 fotoğraf ekleyebilirsin.' });
+      fileInput.value = '';
+      return;
+    }
+    if (files.length > remainingSlots) {
+      showInfoSheet({
+        title: 'Fotoğraf limiti',
+        message: `En fazla 3 fotoğraf ekleyebilirsin. ${remainingSlots} adet daha eklenebilir.`
+      });
+    }
+    for (const file of files.slice(0, remainingSlots)) {
       newPhotos.push({ file, previewUrl: URL.createObjectURL(file) });
     }
     fileInput.value = '';
@@ -928,7 +943,20 @@ function openEditor(note) {
   attachmentFileInput.multiple = true;
   attachmentFileInput.hidden = true;
   attachmentFileInput.addEventListener('change', () => {
-    for (const file of attachmentFileInput.files) {
+    const files = Array.from(attachmentFileInput.files ?? []);
+    const remainingSlots = Math.max(0, MAX_NOTE_ATTACHMENTS - (keptAttachments.length + newAttachments.length));
+    if (remainingSlots <= 0) {
+      showInfoSheet({ title: 'Dosya limiti', message: 'Bir nota en fazla 3 dosya ekleyebilirsin.' });
+      attachmentFileInput.value = '';
+      return;
+    }
+    if (files.length > remainingSlots) {
+      showInfoSheet({
+        title: 'Dosya limiti',
+        message: `En fazla 3 dosya ekleyebilirsin. ${remainingSlots} adet daha eklenebilir.`
+      });
+    }
+    for (const file of files.slice(0, remainingSlots)) {
       newAttachments.push({ file });
     }
     attachmentFileInput.value = '';
@@ -942,14 +970,28 @@ function openEditor(note) {
   photoAddBtn.className = 'editor-icon-btn';
   photoAddBtn.title     = 'Fotoğraf Ekle';
   photoAddBtn.innerHTML = '<i class="fa-solid fa-camera"></i>';
-  photoAddBtn.addEventListener('click', () => fileInput.click());
+  photoAddBtn.addEventListener('click', () => {
+    const totalPhotos = keptPhotos.length + newPhotos.length;
+    if (totalPhotos >= MAX_NOTE_PHOTOS) {
+      showInfoSheet({ title: 'Fotoğraf limiti', message: 'Bu notta zaten 3 fotoğraf var. Daha fazla ekleyemezsin.' });
+      return;
+    }
+    fileInput.click();
+  });
 
   const fileAttachBtn = document.createElement('button');
   fileAttachBtn.type = 'button';
   fileAttachBtn.className = 'editor-icon-btn';
   fileAttachBtn.title = 'Dosya ekle';
   fileAttachBtn.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i>';
-  fileAttachBtn.addEventListener('click', () => attachmentFileInput.click());
+  fileAttachBtn.addEventListener('click', () => {
+    const totalAttachments = keptAttachments.length + newAttachments.length;
+    if (totalAttachments >= MAX_NOTE_ATTACHMENTS) {
+      showInfoSheet({ title: 'Dosya limiti', message: 'Bu notta zaten 3 dosya var. Daha fazla ekleyemezsin.' });
+      return;
+    }
+    attachmentFileInput.click();
+  });
 
   const micBtn = document.createElement('button');
   micBtn.className = 'editor-icon-btn';
@@ -1783,6 +1825,14 @@ async function renderNotes() {
       photoBadge.innerHTML = '<i class="fa-solid fa-image"></i>';
       footerEnd.appendChild(photoBadge);
     }
+    if (note.audios?.length) {
+      const audioBadge = document.createElement('span');
+      audioBadge.className = 'note-audio-badge';
+      audioBadge.title = 'Ses kaydı eklendi';
+      audioBadge.setAttribute('aria-label', 'Ses kaydı eklendi');
+      audioBadge.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+      footerEnd.appendChild(audioBadge);
+    }
     if (normalizeAttachments(note.attachments).length) {
       const fileBadge = document.createElement('span');
       fileBadge.className = 'note-attachment-badge';
@@ -1800,13 +1850,6 @@ async function renderNotes() {
     footer.append(dateSpan, footerEnd);
 
     card.appendChild(text);
-
-    if (note.audios?.length) {
-      const audioBlock = document.createElement('div');
-      audioBlock.className = 'card-audio-block';
-      card.appendChild(audioBlock);
-      loadNoteAudios(note.audios, audioBlock);
-    }
 
     card.appendChild(footer);
     notesList.appendChild(card);

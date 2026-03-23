@@ -57,6 +57,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  overflow: hidden;
   transition: background 0.2s, color 0.2s;
 }
 
@@ -192,6 +193,7 @@ header {
   align-items: center;
   gap: 0.75rem;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -233,6 +235,9 @@ header h1 {
 
 main {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1.5rem 0.75rem;
   padding-bottom: 5.5rem;
   max-width: 640px;
@@ -712,6 +717,13 @@ header {
   opacity: 0.95;
 }
 
+.note-audio-badge {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
 .note-photo-badge {
   flex-shrink: 0;
   color: var(--accent);
@@ -798,6 +810,7 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet-actions {
   display: flex;
   gap: 0.75rem;
+  justify-content: center;
 }
 
 .sheet-btn {
