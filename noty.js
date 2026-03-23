@@ -51,8 +51,6 @@ import { cleanupTrashExpired } from './noty-maintenance.js';
 import { downloadAttachmentFile } from './noty-files.js';
 
 // --- App state ---
-let longPressActive = false;
-let longPressTimer = null;
 let currentMode = 'notes';
 let currentFolderFilterId = null;
 let currentArchiveFilter = 'active'; // 'active' = arşivlenmemiş, 'archived' = arşiv
@@ -1330,7 +1328,6 @@ async function showNoteActionsSheet(noteId) {
   document.body.appendChild(overlay);
 
   const close = () => {
-    longPressActive = false;
     overlay.classList.remove('open');
     sheet.classList.remove('open');
     setTimeout(() => overlay.remove(), 180);
@@ -1751,6 +1748,17 @@ async function renderNotes() {
     card.className  = 'note-card';
     card.dataset.id = note.id;
 
+    const actionsBtn = document.createElement('button');
+    actionsBtn.type = 'button';
+    actionsBtn.className = 'note-actions-btn';
+    actionsBtn.title = 'Not işlemleri';
+    actionsBtn.setAttribute('aria-label', 'Not işlemleri');
+    actionsBtn.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+    actionsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showNoteActionsSheet(note.id);
+    });
+
     const parsed  = parseNoteText(note.text);
     const preview = parsed.bodyHtml ? stripHtml(parsed.bodyHtml) : parsed.plainBody;
 
@@ -1859,7 +1867,7 @@ async function renderNotes() {
     }
     footer.append(dateSpan, footerEnd);
 
-    card.appendChild(text);
+    card.append(actionsBtn, text);
 
     card.appendChild(footer);
     notesList.appendChild(card);
@@ -2202,42 +2210,12 @@ function setupNotesFilterBar() {
   updateSortLabel();
 }
 
-function setupLongPressOnNotes() {
-  const pressStart = (e) => {
-    const card = e.target.closest('.note-card');
-    if (!card) return;
-    clearTimeout(longPressTimer);
-    longPressTimer = setTimeout(() => {
-      longPressActive = true;
-      const id = Number(card.dataset.id);
-      showNoteActionsSheet(id);
-    }, 300);
-  };
-
-  const pressEnd = () => {
-    clearTimeout(longPressTimer);
-  };
-
-  notesList.addEventListener('mousedown', pressStart);
-  notesList.addEventListener('touchstart', pressStart);
-  notesList.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('.note-card')) e.preventDefault();
-  });
-  notesList.addEventListener('mouseup', pressEnd);
-  notesList.addEventListener('mouseleave', pressEnd);
-  notesList.addEventListener('touchend', pressEnd);
-  notesList.addEventListener('touchcancel', pressEnd);
-}
-
 // --- Not kartı tıklama ---
 
 notesList.addEventListener('click', async (e) => {
+  if (e.target.closest('.note-actions-btn')) return;
   const card = e.target.closest('.note-card');
   if (card) {
-    if (longPressActive) {
-      longPressActive = false;
-      return;
-    }
     const notes = await getAllNotes();
     const note  = notes.find((n) => n.id === Number(card.dataset.id));
     if (note) openEditor(note);
@@ -2287,7 +2265,6 @@ if ('serviceWorker' in navigator) {
   }
 }
 
-setupLongPressOnNotes();
 setupNotesFilterBar();
 await cleanupTrashExpired({ getAllNotes, deleteNote, deletePhoto, normalizeAttachments });
 await renderAll();
