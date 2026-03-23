@@ -840,7 +840,7 @@ button.delete-btn:hover { background: var(--surface2); }
   background: transparent;
   border: none;
   border-radius: 10px;
-  padding: 0.55rem 0.25rem;
+  padding: 0.25rem 0.25rem;
   color: var(--text);
   font-size: 1rem;
   font-family: inherit;

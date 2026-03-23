@@ -1,64 +1,68 @@
 import { getAllNotes, saveNote, deleteNote, getAllFolders, saveFolder, deleteFolder, getAllTags, saveTag, deleteTag } from './db.js';
 import { savePhoto, loadPhoto, deletePhoto } from './opfs.js';
 import { initAlarmScheduler, requestNotificationPermissionForAlarm } from './alarms.js';
+import {
+  appTitle,
+  detailContent,
+  fab,
+  foldersList,
+  headerSearch,
+  headerSearchBtn,
+  lightbox,
+  lightboxClose,
+  lightboxImg,
+  menuBtn,
+  navItems,
+  noteCount,
+  notesFilterBar,
+  notesList,
+  notesSearchClear,
+  notesSearchInput,
+  sidebar,
+  sidebarClose,
+  sidebarOverlay,
+  tagsList,
+  themeIcon,
+  themeLabel,
+  themeToggle,
+  viewDetail,
+  viewFolders,
+  viewList,
+  viewTags
+} from './noty-dom.js';
+import {
+  audioExt,
+  datetimeLocalToIso,
+  escapeHtml,
+  formatDate,
+  getSupportedAudioMime,
+  isoToDatetimeLocal,
+  normalizeAttachments,
+  parseNoteText,
+  safeFileExt,
+  serializeNoteText,
+  stripHtml
+} from './noty-utils.js';
+import { initTheme } from './noty-theme.js';
+import { initLightbox } from './noty-lightbox.js';
+import { showConfirmSheet } from './noty-sheet.js';
+import { cleanupTrashExpired } from './noty-maintenance.js';
+import { downloadAttachmentFile } from './noty-files.js';
 
-// --- DOM ---
-
-const notesList      = document.getElementById('notesList');
-const notesFilterBar = document.getElementById('notesFilterBar');
-const notesSearchInput = document.getElementById('notesSearchInput');
-const notesSearchClear = document.getElementById('notesSearchClear');
-const foldersList    = document.getElementById('foldersList');
-const tagsList       = document.getElementById('tagsList');
-const noteCount      = document.getElementById('noteCount');
-const menuBtn        = document.getElementById('menuBtn');
-const sidebar        = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-const sidebarClose   = document.getElementById('sidebarClose');
-const navItems       = document.querySelectorAll('.nav-item');
-const viewList       = document.getElementById('view-list');
-const viewFolders    = document.getElementById('view-folders');
-const viewTags       = document.getElementById('view-tags');
-const viewDetail     = document.getElementById('view-detail');
-const detailContent  = document.getElementById('detailContent');
-const appTitle       = document.getElementById('appTitle');
-const headerSearch   = document.getElementById('headerSearch');
-const headerSearchBtn = document.getElementById('headerSearchBtn');
-const lightbox       = document.getElementById('lightbox');
-const lightboxImg    = document.getElementById('lightboxImg');
-const lightboxClose  = document.getElementById('lightboxClose');
-const fab            = document.getElementById('fab');
-const themeToggle    = document.getElementById('themeToggle');
-const themeIcon      = document.getElementById('themeIcon');
-const themeLabel     = document.getElementById('themeLabel');
-
-let longPressTimer = null;
+// --- App state ---
 let longPressActive = false;
+let longPressTimer = null;
 let currentMode = 'notes';
 let currentFolderFilterId = null;
 let currentArchiveFilter = 'active'; // 'active' = arşivlenmemiş, 'archived' = arşiv
-let sortBy = 'createdAt';   // 'createdAt' | 'updatedAt' | 'title'
-let sortOrder = 'desc';     // 'asc' | 'desc'
+let editorCloseGuard = null;
 let currentTrashFilter = 'active'; // 'active' = çöp değil, 'trash' = çöp kutusu
 let searchQuery = '';
-let editorCloseGuard = null;
+let sortBy = 'createdAt'; // 'createdAt' | 'updatedAt' | 'title'
+let sortOrder = 'desc'; // 'asc' | 'desc'
 
 // --- Tema ---
-
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  const isLight = theme === 'light';
-  themeIcon.className  = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-  themeLabel.textContent = isLight ? 'Dark Mode' : 'Light Mode';
-  localStorage.setItem('noty-theme', theme);
-}
-
-applyTheme(localStorage.getItem('noty-theme') ?? 'dark');
-
-themeToggle.addEventListener('click', () => {
-  const current = document.documentElement.dataset.theme ?? 'dark';
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-});
+initTheme({ themeIcon, themeLabel, themeToggle });
 
 // --- Arama ---
 
@@ -122,57 +126,8 @@ if (notesSearchInput) {
 
 // --- Çöp kutusu temizlik (30 gün) ---
 
-const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
-async function cleanupTrashExpired() {
-  const now = Date.now();
-  let notes;
-  try {
-    notes = await getAllNotes();
-  } catch {
-    return;
-  }
-
-  const expired = notes.filter((n) => {
-    if (!n?.deletedAt) return false;
-    const t = Date.parse(n.deletedAt);
-    if (!Number.isFinite(t)) return false;
-    return now - t >= TRASH_RETENTION_MS;
-  });
-
-  if (!expired.length) return;
-
-  for (const note of expired) {
-    if (note.photos?.length) {
-      await Promise.all(note.photos.map((name) => deletePhoto(name).catch(() => {})));
-    }
-    if (note.audios?.length) {
-      await Promise.all(note.audios.map((name) => deletePhoto(name).catch(() => {})));
-    }
-    for (const att of normalizeAttachments(note.attachments)) {
-      await deletePhoto(att.stored).catch(() => {});
-    }
-    await deleteNote(note.id).catch(() => {});
-  }
-}
-
 // --- Lightbox ---
-
-function openLightbox(src) {
-  lightboxImg.src = src;
-  lightbox.classList.add('open');
-}
-
-function closeLightbox() {
-  const prev = lightboxImg.src;
-  lightbox.classList.remove('open');
-  lightboxImg.src = '';
-  if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-}
-
-lightboxClose.addEventListener('click', closeLightbox);
-lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+const { openLightbox } = initLightbox({ lightbox, lightboxImg, lightboxClose });
 
 // --- Navigasyon ---
 
@@ -225,82 +180,7 @@ fab.addEventListener('click', () => {
   }
 });
 
-// --- Zengin metin: not metni parse/serialize (eski notlarla uyumlu) ---
-const BODY_DELIMITER = '\n<!--noty-body-->\n';
-
-function parseNoteText(text) {
-  if (!text || !text.includes(BODY_DELIMITER)) {
-    const lines = (text || '').split('\n');
-    return { title: lines[0] || '', bodyHtml: null, plainBody: lines.slice(1).join('\n') };
-  }
-  const i = text.indexOf(BODY_DELIMITER);
-  return {
-    title: text.slice(0, i).trim(),
-    bodyHtml: text.slice(i + BODY_DELIMITER.length),
-    plainBody: ''
-  };
-}
-
-function serializeNoteText(title, bodyHtml) {
-  return (title || '').trim() + BODY_DELIMITER + (bodyHtml || '');
-}
-
-function stripHtml(html) {
-  if (!html) return '';
-  const el = document.createElement('div');
-  el.innerHTML = html;
-  return (el.textContent || el.innerText || '').trim();
-}
-
-function isoToDatetimeLocal(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function datetimeLocalToIso(val) {
-  if (!val || !String(val).trim()) return null;
-  const d = new Date(val);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
 // --- Ses kaydı yardımcıları ---
-
-function getSupportedAudioMime() {
-  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
-}
-
-function audioExt(mimeType) {
-  if (mimeType.includes('ogg')) return 'ogg';
-  if (mimeType.includes('mp4')) return 'm4a';
-  return 'webm';
-}
-
-function safeFileExt(filename) {
-  const m = String(filename).match(/\.([a-zA-Z0-9]{1,24})$/);
-  return m ? m[1].toLowerCase() : 'bin';
-}
-
-function normalizeAttachments(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((a) => a && typeof a.stored === 'string' && typeof a.name === 'string');
-}
-
-async function downloadAttachmentFile(att) {
-  try {
-    const blob = await loadPhoto(att.stored);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = att.name;
-    a.rel = 'noopener';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  } catch (_) {}
-}
 
 // --- Editör (yeni not & düzenleme) ---
 
@@ -345,7 +225,7 @@ function openEditor(note) {
     viewList.classList.remove('hidden');
     viewDetail.classList.add('hidden');
     fab.classList.remove('hidden');
-    navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === 'list'));
+    navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === 'notes'));
   };
   cancelBtn.addEventListener('click', async () => {
     if (editorCloseGuard) {
@@ -453,7 +333,7 @@ function openEditor(note) {
     newAudios.forEach((a) => URL.revokeObjectURL(a.url));
     await renderAll();
     editorCloseGuard = null;
-    navigateTo('list');
+    navigateTo('notes');
   });
 
   topBar.append(cancelBtn, spacer, saveBtn);
@@ -573,7 +453,7 @@ function openEditor(note) {
       <button class="sheet-menu-item folder-pick-item" data-id="${f.id}">
         <span class="note-folder-chip-small" style="${f.color ? `background:${f.color};` : ''}${f.fontColor ? `color:${f.fontColor};` : ''}">
           <span class="note-folder-chip-icon"><i class="fa-solid fa-folder"></i></span>
-          <span>${f.name}</span>
+          <span>${escapeHtml(f.name)}</span>
         </span>
       </button>
     `).join('');
@@ -650,7 +530,7 @@ function openEditor(note) {
             <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
             <span class="note-tag-chip-small" style="${style}">
               <span class="note-tag-chip-icon"><i class="fa-solid fa-tag"></i></span>
-              <span>${t.name}</span>
+              <span>${escapeHtml(t.name)}</span>
             </span>
           </button>
         `;
@@ -988,13 +868,13 @@ function openEditor(note) {
       openBtn.className = 'attachment-open-btn';
       openBtn.title = 'İndir / aç';
       openBtn.innerHTML = '<i class="fa-solid fa-file"></i>';
-      openBtn.addEventListener('click', () => downloadAttachmentFile(att));
+      openBtn.addEventListener('click', () => downloadAttachmentFile(att, { loadPhoto }));
       const nameBtn = document.createElement('button');
       nameBtn.type = 'button';
       nameBtn.className = 'attachment-name-btn';
       nameBtn.textContent = att.name;
       nameBtn.title = att.name;
-      nameBtn.addEventListener('click', () => downloadAttachmentFile(att));
+      nameBtn.addEventListener('click', () => downloadAttachmentFile(att, { loadPhoto }));
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'attachment-remove-btn';
@@ -1370,59 +1250,7 @@ navItems.forEach((btn) => btn.addEventListener('click', () => {
   navigateTo(btn.dataset.view).catch(() => {});
 }));
 
-// --- Yardımcı ---
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleString('tr-TR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
-}
-
-// Mobil alt sheet tarzı confirm diyaloğu
-function showConfirmSheet({ title, message, confirmLabel = 'Sil', cancelLabel = 'Vazgeç' }) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'sheet-overlay';
-
-    const sheet = document.createElement('div');
-    sheet.className = 'sheet sheet-bottom';
-    sheet.innerHTML = `
-      <div class="sheet-handle"></div>
-      <div class="sheet-body">
-        <p class="sheet-title">${title}</p>
-        <p class="sheet-message">${message}</p>
-        <div class="sheet-actions">
-          <button class="sheet-btn sheet-btn-cancel">${cancelLabel}</button>
-          <button class="sheet-btn sheet-btn-danger">${confirmLabel}</button>
-        </div>
-      </div>
-    `;
-
-    overlay.appendChild(sheet);
-    document.body.appendChild(overlay);
-
-    const close = (result) => {
-      overlay.classList.remove('open');
-      sheet.classList.remove('open');
-      setTimeout(() => overlay.remove(), 180);
-      resolve(result);
-    };
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(false);
-    });
-
-    sheet.querySelector('.sheet-btn-cancel').addEventListener('click', () => close(false));
-    sheet.querySelector('.sheet-btn-danger').addEventListener('click', () => close(true));
-
-    // küçük animasyon için next frame'de aç
-    requestAnimationFrame(() => {
-      overlay.classList.add('open');
-      sheet.classList.add('open');
-    });
-  });
-}
+// Mobil alt sheet tarzı confirm diyaloğu `noty-sheet.js` içinde.
 
 // Not kartı için uzun basma alt menüsü (şimdilik boş içerik)
 async function showNoteActionsSheet(noteId) {
@@ -1510,7 +1338,7 @@ async function showNoteActionsSheet(noteId) {
             <i class="fa-solid ${on ? 'fa-square-check' : 'fa-square'}"></i>
             <span class="note-tag-chip-small" style="${style}">
               <span class="note-tag-chip-icon"><i class="fa-solid fa-tag"></i></span>
-              <span>${t.name}</span>
+              <span>${escapeHtml(t.name)}</span>
             </span>
           </button>
         `;
@@ -1695,7 +1523,7 @@ async function showNoteActionsSheet(noteId) {
         ${folderAssignLeading(isCurrent)}
         <span class="note-folder-chip-small" style="${f.color ? `background:${f.color};` : ''}${f.fontColor ? `color:${f.fontColor};` : ''}">
           <span class="note-folder-chip-icon"><i class="fa-solid fa-folder"></i></span>
-          <span>${f.name}</span>
+          <span>${escapeHtml(f.name)}</span>
         </span>
       </button>`;
     }).join('');
@@ -2122,7 +1950,7 @@ function setupNotesFilterBar() {
     const items = folders.map((f) => `
       <button class="sheet-menu-item folder-filter-item" data-id="${f.id}">
         <span class="folder-color-dot" style="${f.color ? `background:${f.color}` : 'background:transparent'}"></span>
-        <span>${f.name}</span>
+        <span>${escapeHtml(f.name)}</span>
       </button>
     `).join('');
     sheet.innerHTML = `
@@ -2408,7 +2236,7 @@ if ('serviceWorker' in navigator) {
 
 setupLongPressOnNotes();
 setupNotesFilterBar();
-await cleanupTrashExpired();
+await cleanupTrashExpired({ getAllNotes, deleteNote, deletePhoto, normalizeAttachments });
 await renderAll();
 
 initAlarmScheduler({ onAfterAlarm: () => renderAll() });
