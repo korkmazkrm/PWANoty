@@ -6,10 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="description" content="Basit not alma uygulaması" />
 
-  <!-- PWA genel -->
+  <!-- PWA genel (Android Chrome: standalone için manifest scope/start_url net olmalı; ?v= önbellek kırma) -->
   <meta name="theme-color" content="#7c3aed" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="manifest" href="manifest.json" />
+  <meta name="application-name" content="Noty" />
+  <link rel="manifest" href="manifest.json?v=25" />
 
   <!-- iOS Safari PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes" />

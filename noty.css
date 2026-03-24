@@ -3,6 +3,8 @@
 /* ===== Tema değişkenleri ===== */
 
 :root {
+  /* Alt sheet max yükseklik: viewport − #appHeader (JS ile px yazılır) */
+  --app-header-offset: 3.5rem;
   --bg:              #1e1e2e;
   --bg-low:          #181825;
   --surface:         #313244;
@@ -396,7 +398,7 @@ header {
   background: var(--surface);
   border: 1px solid var(--border2);
   color: var(--subtext);
-  font-size: 0.8rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -435,6 +437,21 @@ header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.tag-card-footer,
+.folder-card-footer {
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.tag-note-count {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.2;
+  margin-left: 0.5rem;
 }
 
 .tag-chip {
@@ -545,7 +562,7 @@ header {
 
 .note-folder-chip-small,
 .note-tag-chip-small {
-  font-size: 0.75rem;
+  font-size: 0.80rem;
   color: var(--muted);
   margin-left: 0.5rem;
   padding: 0.2rem 0.5rem;
@@ -796,9 +813,11 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet {
   width: 100%;
   max-width: 640px;
-  max-height: min(85dvh, 720px);
+  max-height: calc(100dvh - var(--app-header-offset));
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--menu-background);
   border-radius: 10px 10px 0 0;
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
@@ -811,6 +830,7 @@ button.delete-btn:hover { background: var(--surface2); }
 }
 
 .sheet-handle {
+  flex-shrink: 0;
   width: 40px;
   height: 4px;
   background: var(--border2);
@@ -818,6 +838,8 @@ button.delete-btn:hover { background: var(--surface2); }
 }
 
 .sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0.5rem 0.75rem 1.5rem 0.75rem;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -827,6 +849,7 @@ button.delete-btn:hover { background: var(--surface2); }
   font-weight: 600;
   font-size: 1.25rem;
   margin-bottom: 1rem;
+  text-align: center;
 }
 
 .sheet-message {
@@ -837,7 +860,8 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet-actions {
   display: flex;
   gap: 0.75rem;
-  justify-content: center;
+  /*justify-content: center;*/
+  padding-top: 1.5rem;
 }
 
 .sheet-btn {
@@ -870,6 +894,34 @@ button.delete-btn:hover { background: var(--surface2); }
 
 .sheet-note-actions.filter-sheet-actions {
   gap: 0.1rem;
+}
+
+/* Filtre sheet: bölüm başlıkları (Klasör, Arşiv, …) */
+.filter-sheet-section {
+  margin-top: 0.85rem;
+}
+
+.sheet-body > .sheet-title + .filter-sheet-section {
+  margin-top: 0.4rem;
+}
+
+.filter-sheet-heading {
+  margin: 0 0 0.35rem 0;
+  padding: 0.42rem 0.7rem 0.42rem 0.65rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  /*background: var(--surface2);*/
+  border-radius: 8px;
+  /*border-left: 3px solid var(--accent);*/
+}
+
+.filter-sheet-section .sheet-note-actions {
+  padding-top: 0.1rem;
+  padding-bottom: 0;
 }
 
 .sheet-menu-item {

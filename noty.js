@@ -63,6 +63,19 @@ let sortOrder = 'desc'; // 'asc' | 'desc'
 // --- Tema ---
 initTheme({ themeIcon, themeLabel, themeToggle });
 
+/** Alt sheet yüksekliği: üst kenar #appHeader alt çizgisiyle hizalı olsun (px: gerçek header yüksekliği). */
+function syncAppHeaderOffset() {
+  if (!appHeader) return;
+  const h = appHeader.classList.contains('hidden') ? 0 : appHeader.offsetHeight;
+  document.documentElement.style.setProperty('--app-header-offset', `${h}px`);
+}
+
+window.addEventListener('resize', syncAppHeaderOffset);
+window.addEventListener('orientationchange', () => {
+  requestAnimationFrame(syncAppHeaderOffset);
+});
+syncAppHeaderOffset();
+
 // --- Arama ---
 
 const SEARCH_MIN_CHARS = 1;
@@ -86,6 +99,7 @@ if (notesSearchInput) {
     if (open) {
       requestAnimationFrame(() => notesSearchInput.focus());
     }
+    syncAppHeaderOffset();
   };
 
   notesSearchInput.addEventListener('input', () => {
@@ -132,6 +146,7 @@ const { openLightbox } = initLightbox({ lightbox, lightboxImg, lightboxClose });
 
 function setAppHeaderVisible(visible) {
   appHeader?.classList.toggle('hidden', !visible);
+  syncAppHeaderOffset();
 }
 
 function showListViews() {
@@ -1139,6 +1154,49 @@ function openFolderEditor(folder) {
   descInput.placeholder = 'İsteğe bağlı açıklama...';
   descInput.value = isNew ? '' : (folder.description ?? '');
 
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'sheet-btn sheet-btn-danger tag-delete-btn';
+  deleteBtn.textContent = 'Klasörü sil';
+  deleteBtn.style.margin = '1rem 1.25rem 0';
+  deleteBtn.style.width = 'calc(100% - 2.5rem)';
+
+  deleteBtn.addEventListener('click', async () => {
+    if (isNew) return;
+    const fid = Number(folder.id);
+    let usedCount = 0;
+    try {
+      const notes = await getAllNotes();
+      usedCount = notes.filter(
+        (n) => !n.deletedAt && n.folderId != null && Number(n.folderId) === fid
+      ).length;
+    } catch {
+      usedCount = 0;
+    }
+    const extra = usedCount
+      ? ` Bu klasör ${usedCount} notta kullanılıyor; silersen notların üzerinden de kaldırılacak.`
+      : '';
+    const ok = await showConfirmSheet({
+      title: 'Klasörü sil',
+      message: `Bu klasör silinecek.${extra}`,
+      confirmLabel: 'Evet, sil',
+      cancelLabel: 'Vazgeç'
+    });
+    if (!ok) return;
+    try {
+      const notes = await getAllNotes();
+      const affected = notes.filter((n) => n.folderId != null && Number(n.folderId) === fid);
+      for (const n of affected) {
+        n.folderId = null;
+        await saveNote(n);
+      }
+    } catch { /* sessiz */ }
+    await deleteFolder(folder.id);
+    await renderAll();
+    currentMode = 'folders';
+    showListViews();
+  });
+
   saveBtn.addEventListener('click', async () => {
     const name = nameInput.value.trim();
     const description = descInput.value.trim();
@@ -1160,9 +1218,11 @@ function openFolderEditor(folder) {
   });
 
   detailContent.append(topBar, nameInput, descInput, colorRow);
+  if (!isNew) detailContent.append(deleteBtn);
 
   viewList.classList.add('hidden');
   viewFolders.classList.add('hidden');
+  viewTags.classList.add('hidden');
   viewDetail.classList.remove('hidden');
   fab.classList.add('hidden');
   setAppHeaderVisible(false);
@@ -1883,6 +1943,18 @@ async function renderFolders() {
   const folders = await getAllFolders();
   folders.sort((a, b) => b.id - a.id);
 
+  let noteCountByFolderId = new Map();
+  try {
+    const notes = await getAllNotes();
+    for (const n of notes) {
+      if (n.deletedAt || n.folderId == null) continue;
+      const fid = Number(n.folderId);
+      noteCountByFolderId.set(fid, (noteCountByFolderId.get(fid) ?? 0) + 1);
+    }
+  } catch {
+    noteCountByFolderId = new Map();
+  }
+
   if (!folders.length) {
     foldersList.innerHTML = '<p class="empty-state">Henüz klasör yok. Sağ alttaki + butonuna bas!</p>';
     return;
@@ -1922,12 +1994,20 @@ async function renderFolders() {
     }
 
     const footer = document.createElement('div');
-    footer.className = 'note-footer';
+    footer.className = 'note-footer folder-card-footer';
     const dateLabel = document.createElement('span');
     dateLabel.className = 'note-date';
     const dateSource = folder.updatedAt ?? folder.createdAt;
     dateLabel.textContent = dateSource ? formatDate(dateSource) : '';
     footer.appendChild(dateLabel);
+    const nNotes = noteCountByFolderId.get(Number(folder.id)) ?? 0;
+    if (nNotes > 0) {
+      const countLabel = document.createElement('span');
+      countLabel.className = 'tag-note-count';
+      countLabel.textContent = `${nNotes} not`;
+      countLabel.setAttribute('aria-label', `${nNotes} notta kullanılıyor`);
+      footer.appendChild(countLabel);
+    }
 
     card.appendChild(text);
     card.appendChild(footer);
@@ -1938,6 +2018,19 @@ async function renderFolders() {
 async function renderTags() {
   const tags = await getAllTags();
   tags.sort((a, b) => b.id - a.id);
+
+  let noteCountByTagId = new Map();
+  try {
+    const notes = await getAllNotes();
+    for (const n of notes) {
+      if (n.deletedAt) continue;
+      for (const id of n.tagIds ?? []) {
+        noteCountByTagId.set(id, (noteCountByTagId.get(id) ?? 0) + 1);
+      }
+    }
+  } catch {
+    noteCountByTagId = new Map();
+  }
 
   if (!tags.length) {
     tagsList.innerHTML = '<p class="empty-state">Henüz etiket yok. Sağ alttaki + butonuna bas!</p>';
@@ -1967,12 +2060,20 @@ async function renderTags() {
     text.appendChild(titleRow);
 
     const footer = document.createElement('div');
-    footer.className = 'note-footer';
+    footer.className = 'note-footer tag-card-footer';
     const dateLabel = document.createElement('span');
     dateLabel.className = 'note-date';
     const dateSource = tag.updatedAt ?? tag.createdAt;
     dateLabel.textContent = dateSource ? formatDate(dateSource) : '';
     footer.appendChild(dateLabel);
+    const nNotes = noteCountByTagId.get(tag.id) ?? 0;
+    if (nNotes > 0) {
+      const countLabel = document.createElement('span');
+      countLabel.className = 'tag-note-count';
+      countLabel.textContent = `${nNotes} not`;
+      countLabel.setAttribute('aria-label', `${nNotes} notta kullanılıyor`);
+      footer.appendChild(countLabel);
+    }
 
     card.appendChild(text);
     card.appendChild(footer);
@@ -2023,8 +2124,9 @@ function setupNotesFilterBar() {
         <div class="sheet-body">
           <p class="sheet-title">Filtrele & Sırala</p>
 
-          <p class="sheet-message">Klasör</p>
-          <div class="sheet-note-actions filter-sheet-actions">
+          <section class="filter-sheet-section" aria-labelledby="filter-heading-folder">
+            <h3 class="filter-sheet-heading" id="filter-heading-folder">Klasör</h3>
+            <div class="sheet-note-actions filter-sheet-actions">
             <button class="sheet-menu-item filter-folder-item${nextFolderId == null ? ' folder-assign-item--current' : ''}" data-id="">
               <span class="note-folder-chip-small">
                 <span class="note-folder-chip-icon"><i class="fa-regular fa-folder-open"></i></span>
@@ -2032,29 +2134,36 @@ function setupNotesFilterBar() {
               </span>
             </button>
             ${folderItems}
-          </div>
+            </div>
+          </section>
 
-          <p class="sheet-message" style="margin-top:0.6rem">Arşiv</p>
-          <div class="sheet-note-actions filter-sheet-actions">
+          <section class="filter-sheet-section" aria-labelledby="filter-heading-archive">
+            <h3 class="filter-sheet-heading" id="filter-heading-archive">Arşiv</h3>
+            <div class="sheet-note-actions filter-sheet-actions">
             <button class="sheet-menu-item filter-archive-item${nextArchive === 'active' ? ' folder-assign-item--current' : ''}" data-value="active">Arşivlenmemiş</button>
             <button class="sheet-menu-item filter-archive-item${nextArchive === 'archived' ? ' folder-assign-item--current' : ''}" data-value="archived">Arşiv</button>
-          </div>
+            </div>
+          </section>
 
-          <p class="sheet-message" style="margin-top:0.6rem">Çöp</p>
-          <div class="sheet-note-actions">
+          <section class="filter-sheet-section" aria-labelledby="filter-heading-trash">
+            <h3 class="filter-sheet-heading" id="filter-heading-trash">Çöp</h3>
+            <div class="sheet-note-actions filter-sheet-actions">
             <button class="sheet-menu-item filter-trash-item${nextTrash === 'active' ? ' folder-assign-item--current' : ''}" data-value="active">Aktif</button>
             <button class="sheet-menu-item filter-trash-item${nextTrash === 'trash' ? ' folder-assign-item--current' : ''}" data-value="trash">Çöp kutusu</button>
-          </div>
+            </div>
+          </section>
 
-          <p class="sheet-message" style="margin-top:0.6rem">Sıralama</p>
-          <div class="sheet-note-actions">
+          <section class="filter-sheet-section" aria-labelledby="filter-heading-sort">
+            <h3 class="filter-sheet-heading" id="filter-heading-sort">Sıralama</h3>
+            <div class="sheet-note-actions filter-sheet-actions">
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'createdAt' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="createdAt" data-order="desc">Oluşturma (yeni)</button>
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'createdAt' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="createdAt" data-order="asc">Oluşturma (eski)</button>
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'updatedAt' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="updatedAt" data-order="desc">Güncelleme (yeni)</button>
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'updatedAt' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="updatedAt" data-order="asc">Güncelleme (eski)</button>
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'title' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="title" data-order="asc">Başlık (A-Z)</button>
             <button class="sheet-menu-item filter-sort-item${nextSortBy === 'title' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="title" data-order="desc">Başlık (Z-A)</button>
-          </div>
+            </div>
+          </section>
 
           <div class="sheet-actions" style="margin-top:0.75rem">
             <button class="sheet-btn sheet-btn-cancel filter-reset-btn">Temizle</button>
@@ -2193,5 +2302,6 @@ if ('serviceWorker' in navigator) {
 setupNotesFilterBar();
 await cleanupTrashExpired({ getAllNotes, deleteNote, deletePhoto, normalizeAttachments });
 await renderAll();
+requestAnimationFrame(() => syncAppHeaderOffset());
 
 initAlarmScheduler({ onAfterAlarm: () => renderAll() });
