@@ -570,7 +570,7 @@ header {
   display: none;
   flex-wrap: wrap;
   gap: 0.35rem;
-  padding: 0 1.5rem 0.25rem;
+  padding: 0.25rem 1.5rem 0.25rem;
 }
 
 .editor-alarm-btn--active {
@@ -726,29 +726,33 @@ header {
 .note-alarm-badge {
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 0.95rem;
-  opacity: 0.95;
+  font-size: 1.05rem;
+  opacity: 0.75;
+  padding: 0rem 0.15rem;
 }
 
 .note-attachment-badge {
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 0.95rem;
-  opacity: 0.95;
+  font-size: 1.05rem;
+  opacity: 0.75;
+  padding: 0rem 0.15rem;
 }
 
 .note-audio-badge {
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 0.95rem;
-  opacity: 0.95;
+  font-size: 1.05rem;
+  opacity: 0.75;
+  padding: 0rem 0.15rem;
 }
 
 .note-photo-badge {
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 0.95rem;
-  opacity: 0.95;
+  font-size: 1.15rem;
+  opacity: 0.75;
+  padding: 0rem 0.15rem;
 }
 
 .note-date {
@@ -792,8 +796,11 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet {
   width: 100%;
   max-width: 640px;
+  max-height: min(85dvh, 720px);
+  display: flex;
+  flex-direction: column;
   background: var(--menu-background);
-  border-radius: 18px 18px 0 0;
+  border-radius: 10px 10px 0 0;
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   transform: translateY(100%);
   transition: transform 0.2s ease-out;
@@ -806,13 +813,14 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet-handle {
   width: 40px;
   height: 4px;
-  border-radius: 999px;
   background: var(--border2);
   margin: 0.5rem auto;
 }
 
 .sheet-body {
   padding: 0.5rem 0.75rem 1.5rem 0.75rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sheet-title {
@@ -824,7 +832,6 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet-message {
   font-size: 1.1rem;
   color: var(--subtext);
-  margin-bottom: 2rem;
 }
 
 .sheet-actions {
@@ -857,22 +864,22 @@ button.delete-btn:hover { background: var(--surface2); }
 .sheet-note-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  background-color: #fff;
-  border-radius: 15px;
+  gap: 1rem;
   padding: 0.5rem 0rem;
+}
+
+.sheet-note-actions.filter-sheet-actions {
+  gap: 0.1rem;
 }
 
 .sheet-menu-item {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 1.25rem;
   width: 100%;
   text-align: left;
-  /*background: var(--surface);*/
   background: transparent;
   border: none;
-  border-radius: 10px;
   padding: 0.35rem 0.25rem;
   color: var(--text);
   font-size: 1rem;

@@ -164,8 +164,13 @@ async function navigateTo(viewName) {
     currentTrashFilter = 'trash';
     currentArchiveFilter = 'active';
     currentFolderFilterId = null;
+  } else if (viewName === 'archive') {
+    currentTrashFilter = 'active';
+    currentArchiveFilter = 'archived';
+    currentFolderFilterId = null;
   } else if (viewName === 'notes') {
     currentTrashFilter = 'active';
+    currentArchiveFilter = 'active';
   }
   showListViews();
   navItems.forEach((btn) => btn.classList.toggle('active', btn.dataset.view === viewName));
@@ -546,7 +551,7 @@ function openEditor(note) {
         <div class="sheet-handle"></div>
         <div class="sheet-body">
           <p class="sheet-title">Etiket seç</p>
-          <div class="sheet-note-actions">
+          <div class="sheet-note-actions filter-sheet-actions">
             ${items || '<p class="empty-state" style="padding:0.75rem 0.25rem">Henüz etiket yok.</p>'}
             <button class="sheet-btn sheet-btn-cancel tag-pick-done">Bitti</button>
           </div>
@@ -1396,7 +1401,7 @@ async function showNoteActionsSheet(noteId) {
         <div class="sheet-handle"></div>
         <div class="sheet-body">
           <p class="sheet-title">Etiket ata</p>
-          <div class="sheet-note-actions">
+          <div class="sheet-note-actions filter-sheet-actions">
             ${items || '<p class="empty-state" style="padding:0.75rem 0.25rem">Henüz etiket yok.</p>'}
             <button class="sheet-btn sheet-btn-cancel tag-assign-done">Bitti</button>
           </div>
@@ -1982,232 +1987,152 @@ async function renderAll() {
 function setupNotesFilterBar() {
   if (!notesFilterBar) return;
   notesFilterBar.innerHTML = '';
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'notes-filter-chip notes-filter-chip-sort';
+  openBtn.innerHTML = `
+    <span class="notes-filter-chip-sort-icon"><i class="fa-solid fa-sliders"></i></span>
+    <span>Filtrele & Sırala</span>
+  `;
 
-  const folderChip = document.createElement('button');
-  folderChip.type = 'button';
-  folderChip.className = 'notes-filter-chip';
-  const folderLabel = document.createElement('span');
-  folderLabel.textContent = 'Tüm notlar';
-  folderChip.append(folderLabel);
-  const updateFolderLabel = async () => {
-    if (currentFolderFilterId == null) {
-      folderLabel.textContent = 'Tüm notlar';
-      return;
-    }
-    try {
-      const folders = await getAllFolders();
-      const f = folders.find((x) => x.id === currentFolderFilterId);
-      folderLabel.textContent = f ? f.name : 'Tüm notlar';
-    } catch {
-      folderLabel.textContent = 'Tüm notlar';
-    }
-  };
-  folderChip.addEventListener('click', async () => {
+  openBtn.addEventListener('click', async () => {
     const folders = await getAllFolders();
+    let nextFolderId = currentFolderFilterId;
+    let nextArchive = currentArchiveFilter;
+    let nextTrash = currentTrashFilter;
+    let nextSortBy = sortBy;
+    let nextSortOrder = sortOrder;
+
     const overlay = document.createElement('div');
     overlay.className = 'sheet-overlay';
     const sheet = document.createElement('div');
     sheet.className = 'sheet sheet-bottom';
-    const items = folders.map((f) => `
-      <button class="sheet-menu-item folder-filter-item" data-id="${f.id}">
-        <span class="folder-color-dot" style="${f.color ? `background:${f.color}` : 'background:transparent'}"></span>
-        <span>${escapeHtml(f.name)}</span>
-      </button>
-    `).join('');
-    sheet.innerHTML = `
-      <div class="sheet-handle"></div>
-      <div class="sheet-body">
-        <div class="sheet-note-actions">
-          <button class="sheet-menu-item folder-filter-item" data-id="">
-            <span>Tüm notlar</span>
-          </button>
-          ${items}
+
+    const renderSheet = () => {
+      const folderItems = folders.map((f) => `
+        <button class="sheet-menu-item filter-folder-item${nextFolderId === Number(f.id) ? ' folder-assign-item--current' : ''}" data-id="${f.id}">
+          <span class="note-folder-chip-small" style="${f.color ? `background:${f.color};` : ''}${f.fontColor ? `color:${f.fontColor};` : ''}">
+            <span class="note-folder-chip-icon"><i class="fa-solid fa-folder"></i></span>
+            <span>${escapeHtml(f.name)}</span>
+          </span>
+        </button>
+      `).join('');
+
+      sheet.innerHTML = `
+        <div class="sheet-handle"></div>
+        <div class="sheet-body">
+          <p class="sheet-title">Filtrele & Sırala</p>
+
+          <p class="sheet-message">Klasör</p>
+          <div class="sheet-note-actions filter-sheet-actions">
+            <button class="sheet-menu-item filter-folder-item${nextFolderId == null ? ' folder-assign-item--current' : ''}" data-id="">
+              <span class="note-folder-chip-small">
+                <span class="note-folder-chip-icon"><i class="fa-regular fa-folder-open"></i></span>
+                <span>Tüm notlar</span>
+              </span>
+            </button>
+            ${folderItems}
+          </div>
+
+          <p class="sheet-message" style="margin-top:0.6rem">Arşiv</p>
+          <div class="sheet-note-actions filter-sheet-actions">
+            <button class="sheet-menu-item filter-archive-item${nextArchive === 'active' ? ' folder-assign-item--current' : ''}" data-value="active">Arşivlenmemiş</button>
+            <button class="sheet-menu-item filter-archive-item${nextArchive === 'archived' ? ' folder-assign-item--current' : ''}" data-value="archived">Arşiv</button>
+          </div>
+
+          <p class="sheet-message" style="margin-top:0.6rem">Çöp</p>
+          <div class="sheet-note-actions">
+            <button class="sheet-menu-item filter-trash-item${nextTrash === 'active' ? ' folder-assign-item--current' : ''}" data-value="active">Aktif</button>
+            <button class="sheet-menu-item filter-trash-item${nextTrash === 'trash' ? ' folder-assign-item--current' : ''}" data-value="trash">Çöp kutusu</button>
+          </div>
+
+          <p class="sheet-message" style="margin-top:0.6rem">Sıralama</p>
+          <div class="sheet-note-actions">
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'createdAt' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="createdAt" data-order="desc">Oluşturma (yeni)</button>
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'createdAt' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="createdAt" data-order="asc">Oluşturma (eski)</button>
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'updatedAt' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="updatedAt" data-order="desc">Güncelleme (yeni)</button>
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'updatedAt' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="updatedAt" data-order="asc">Güncelleme (eski)</button>
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'title' && nextSortOrder === 'asc' ? ' folder-assign-item--current' : ''}" data-sort="title" data-order="asc">Başlık (A-Z)</button>
+            <button class="sheet-menu-item filter-sort-item${nextSortBy === 'title' && nextSortOrder === 'desc' ? ' folder-assign-item--current' : ''}" data-sort="title" data-order="desc">Başlık (Z-A)</button>
+          </div>
+
+          <div class="sheet-actions" style="margin-top:0.75rem">
+            <button class="sheet-btn sheet-btn-cancel filter-reset-btn">Temizle</button>
+            <button class="sheet-btn sheet-btn-danger filter-apply-btn">Uygula</button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    };
+
+    renderSheet();
     overlay.appendChild(sheet);
     document.body.appendChild(overlay);
+
     const close = () => {
       overlay.classList.remove('open');
       sheet.classList.remove('open');
       setTimeout(() => overlay.remove(), 180);
     };
+
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close();
     });
+
     sheet.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.folder-filter-item');
-      if (!btn) return;
-      const id = btn.dataset.id;
-      currentFolderFilterId = id ? Number(id) : null;
+      const folderBtn = e.target.closest('.filter-folder-item');
+      if (folderBtn) {
+        const id = folderBtn.dataset.id;
+        nextFolderId = id ? Number(id) : null;
+        renderSheet();
+        return;
+      }
+      const archiveBtn = e.target.closest('.filter-archive-item');
+      if (archiveBtn) {
+        nextArchive = archiveBtn.dataset.value;
+        renderSheet();
+        return;
+      }
+      const trashBtn = e.target.closest('.filter-trash-item');
+      if (trashBtn) {
+        nextTrash = trashBtn.dataset.value;
+        renderSheet();
+        return;
+      }
+      const sortBtn = e.target.closest('.filter-sort-item');
+      if (sortBtn) {
+        nextSortBy = sortBtn.dataset.sort;
+        nextSortOrder = sortBtn.dataset.order;
+        renderSheet();
+        return;
+      }
+      const resetBtn = e.target.closest('.filter-reset-btn');
+      if (resetBtn) {
+        nextFolderId = null;
+        nextArchive = 'active';
+        nextTrash = 'active';
+        nextSortBy = 'createdAt';
+        nextSortOrder = 'desc';
+        renderSheet();
+        return;
+      }
+      const applyBtn = e.target.closest('.filter-apply-btn');
+      if (!applyBtn) return;
+      currentFolderFilterId = nextFolderId;
+      currentArchiveFilter = nextArchive;
+      currentTrashFilter = nextTrash;
+      sortBy = nextSortBy;
+      sortOrder = nextSortOrder;
       await renderNotes();
-      await updateFolderLabel();
       close();
     });
+
     requestAnimationFrame(() => {
       overlay.classList.add('open');
       sheet.classList.add('open');
     });
   });
-  notesFilterBar.append(folderChip);
 
-  const archiveChip = document.createElement('button');
-  archiveChip.type = 'button';
-  archiveChip.className = 'notes-filter-chip notes-filter-chip-archive';
-  const archiveLabel = document.createElement('span');
-  archiveLabel.textContent = currentArchiveFilter === 'archived' ? 'Arşiv' : 'Arşivlenmemiş';
-  archiveChip.append(archiveLabel);
-  const updateArchiveLabel = () => {
-    archiveLabel.textContent = currentArchiveFilter === 'archived' ? 'Arşiv' : 'Arşivlenmemiş';
-  };
-  archiveChip.addEventListener('click', () => {
-    const overlay = document.createElement('div');
-    overlay.className = 'sheet-overlay';
-    const sheet = document.createElement('div');
-    sheet.className = 'sheet sheet-bottom';
-    sheet.innerHTML = `
-      <div class="sheet-handle"></div>
-      <div class="sheet-body">
-        <div class="sheet-note-actions">
-          <button class="sheet-menu-item archive-filter-item" data-value="active">Arşivlenmemiş</button>
-          <button class="sheet-menu-item archive-filter-item" data-value="archived">Arşiv</button>
-        </div>
-      </div>
-    `;
-    overlay.appendChild(sheet);
-    document.body.appendChild(overlay);
-    const close = () => {
-      overlay.classList.remove('open');
-      sheet.classList.remove('open');
-      setTimeout(() => overlay.remove(), 180);
-    };
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-    sheet.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.archive-filter-item');
-      if (!btn) return;
-      currentArchiveFilter = btn.dataset.value;
-      await renderNotes();
-      updateArchiveLabel();
-      close();
-    });
-    requestAnimationFrame(() => {
-      overlay.classList.add('open');
-      sheet.classList.add('open');
-    });
-  });
-  notesFilterBar.append(archiveChip);
-
-  const trashChip = document.createElement('button');
-  trashChip.type = 'button';
-  trashChip.className = 'notes-filter-chip notes-filter-chip-trash';
-  const trashLabel = document.createElement('span');
-  trashChip.append(trashLabel);
-  const updateTrashLabel = () => {
-    trashLabel.textContent = currentTrashFilter === 'trash' ? 'Çöp kutusu' : 'Aktif';
-  };
-  trashChip.addEventListener('click', () => {
-    const overlay = document.createElement('div');
-    overlay.className = 'sheet-overlay';
-    const sheet = document.createElement('div');
-    sheet.className = 'sheet sheet-bottom';
-    sheet.innerHTML = `
-      <div class="sheet-handle"></div>
-      <div class="sheet-body">
-        <div class="sheet-note-actions">
-          <button class="sheet-menu-item trash-filter-item" data-value="active">Aktif</button>
-          <button class="sheet-menu-item trash-filter-item" data-value="trash">Çöp kutusu</button>
-        </div>
-      </div>
-    `;
-    overlay.appendChild(sheet);
-    document.body.appendChild(overlay);
-    const close = () => {
-      overlay.classList.remove('open');
-      sheet.classList.remove('open');
-      setTimeout(() => overlay.remove(), 180);
-    };
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-    sheet.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.trash-filter-item');
-      if (!btn) return;
-      currentTrashFilter = btn.dataset.value;
-      await renderNotes();
-      updateTrashLabel();
-      close();
-    });
-    requestAnimationFrame(() => {
-      overlay.classList.add('open');
-      sheet.classList.add('open');
-    });
-  });
-  notesFilterBar.append(trashChip);
-
-  const sortChip = document.createElement('button');
-  sortChip.type = 'button';
-  sortChip.className = 'notes-filter-chip notes-filter-chip-sort';
-  const sortIcon = document.createElement('span');
-  sortIcon.className = 'notes-filter-chip-sort-icon';
-  sortIcon.innerHTML = '<i class="fa-solid fa-filter"></i>';
-  const sortLabel = document.createElement('span');
-  sortChip.append(sortIcon, sortLabel);
-  const getSortLabel = () => {
-    if (sortBy === 'createdAt') return sortOrder === 'desc' ? 'Oluşturma (yeni)' : 'Oluşturma (eski)';
-    if (sortBy === 'updatedAt') return sortOrder === 'desc' ? 'Güncelleme (yeni)' : 'Güncelleme (eski)';
-    return sortOrder === 'asc' ? 'Başlık (A-Z)' : 'Başlık (Z-A)';
-  };
-  const updateSortLabel = () => { sortLabel.textContent = getSortLabel(); };
-  sortChip.addEventListener('click', () => {
-    const overlay = document.createElement('div');
-    overlay.className = 'sheet-overlay';
-    const sheet = document.createElement('div');
-    sheet.className = 'sheet sheet-bottom';
-    sheet.innerHTML = `
-      <div class="sheet-handle"></div>
-      <div class="sheet-body">
-        <div class="sheet-note-actions">
-          <button class="sheet-menu-item sort-filter-item" data-sort="createdAt" data-order="desc">Oluşturma (yeniden eskiye)</button>
-          <button class="sheet-menu-item sort-filter-item" data-sort="createdAt" data-order="asc">Oluşturma (eskiden yeniye)</button>
-          <button class="sheet-menu-item sort-filter-item" data-sort="updatedAt" data-order="desc">Güncelleme (yeniden eskiye)</button>
-          <button class="sheet-menu-item sort-filter-item" data-sort="updatedAt" data-order="asc">Güncelleme (eskiden yeniye)</button>
-          <button class="sheet-menu-item sort-filter-item" data-sort="title" data-order="asc">Başlık (A-Z)</button>
-          <button class="sheet-menu-item sort-filter-item" data-sort="title" data-order="desc">Başlık (Z-A)</button>
-        </div>
-      </div>
-    `;
-    overlay.appendChild(sheet);
-    document.body.appendChild(overlay);
-    const close = () => {
-      overlay.classList.remove('open');
-      sheet.classList.remove('open');
-      setTimeout(() => overlay.remove(), 180);
-    };
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-    sheet.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.sort-filter-item');
-      if (!btn) return;
-      sortBy = btn.dataset.sort;
-      sortOrder = btn.dataset.order;
-      await renderNotes();
-      updateSortLabel();
-      close();
-    });
-    requestAnimationFrame(() => {
-      overlay.classList.add('open');
-      sheet.classList.add('open');
-    });
-  });
-  notesFilterBar.append(sortChip);
-
-  updateFolderLabel();
-  updateArchiveLabel();
-  updateTrashLabel();
-  updateSortLabel();
+  notesFilterBar.append(openBtn);
 }
 
 // --- Not kartı tıklama ---
